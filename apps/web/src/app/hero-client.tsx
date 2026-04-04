@@ -12,18 +12,27 @@ export function HeroClient() {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const W = 900;
-    const H = 400;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.scale(dpr, dpr);
-
     const chars = ".:-=+*#%@";
     const fontSize = 14;
-    const cols = Math.floor(W / (fontSize * 0.6));
-    const rows = Math.floor(H / fontSize);
+
+    let W = 0;
+    let H = 0;
+    let cols = 0;
+    let rows = 0;
+
+    function resize() {
+      const rect = canvas!.getBoundingClientRect();
+      W = rect.width;
+      H = rect.height;
+      canvas!.width = W * dpr;
+      canvas!.height = H * dpr;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cols = Math.floor(W / (fontSize * 0.6));
+      rows = Math.floor(H / fontSize);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
 
     let frame = 0;
     let animId: number;
@@ -57,13 +66,16 @@ export function HeroClient() {
     }
 
     draw();
-    return () => cancelAnimationFrame(animId);
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className="w-full max-w-[900px] h-[400px] opacity-60"
+      className="absolute inset-0 w-full h-full opacity-60"
     />
   );
 }

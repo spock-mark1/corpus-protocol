@@ -229,13 +229,13 @@ async def register_service(
     price: float,
     wallet_address: str = "",
 ) -> dict:
-    # This calls a Web API to upsert the CommerceService record
-    # For now, return instructions since CommerceService is set at Genesis
-    return {
-        "status": "info",
-        "message": (
-            "Service registration is configured during Corpus Genesis on the Launchpad. "
-            f"To update, modify the service settings on the Dashboard. "
-            f"Current request: {service_name} at ${price}"
-        ),
-    }
+    result = await _api.register_service(
+        _settings.corpus_id,
+        service_name=service_name,
+        description=description,
+        price=price,
+        wallet_address=wallet_address or None,
+    )
+    if result:
+        return {"status": "registered", "service_name": service_name, "price": price}
+    return {"error": "Service registration failed"}

@@ -1,7 +1,40 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { cppRevenues } from "@/db/schema";
+import { cppCorpus, cppRevenues } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
+
+// GET /api/corpus/:id/revenue — Get revenue history
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const corpus = await db
+      .select({ id: cppCorpus.id })
+      .from(cppCorpus)
+      .where(eq(cppCorpus.id, id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (!corpus) {
+      return Response.json({ error: "Corpus not found" }, { status: 404 });
+    }
+
+    const revenues = await db
+      .select()
+      .from(cppRevenues)
+      .where(eq(cppRevenues.corpusId, id))
+      .orderBy(desc(cppRevenues.createdAt))
+      .limit(50);
+
+    return Response.json(revenues);
+  } catch {
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 // POST /api/corpus/:id/revenue — Report revenue (from Local Agent)
 export async function POST(

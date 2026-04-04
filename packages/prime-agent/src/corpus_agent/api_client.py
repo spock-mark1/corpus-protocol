@@ -167,6 +167,28 @@ class CorpusAPIClient:
             return data if isinstance(data, list) else data.get("services", [])
         return []
 
+    async def register_service(
+        self,
+        corpus_id: str,
+        *,
+        service_name: str,
+        description: str,
+        price: float,
+        wallet_address: str | None = None,
+    ) -> dict | None:
+        """Register or update this Corpus's x402 service on the marketplace."""
+        payload: dict[str, Any] = {
+            "serviceName": service_name,
+            "description": description,
+            "price": price,
+        }
+        if wallet_address:
+            payload["walletAddress"] = wallet_address
+        r = await self._client.put(f"/api/corpus/{corpus_id}/service", json=payload)
+        if r.status_code in (200, 201):
+            return r.json()
+        return None
+
     # ── Jobs ───────────────────────────────────────────────
 
     async def get_pending_jobs(self) -> list[dict]:

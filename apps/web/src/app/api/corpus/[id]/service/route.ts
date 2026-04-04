@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppCommerceServices, cppCommerceJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { verifyAgentApiKey } from "@/lib/auth";
 
 // Arc network config (USDC = native gas token)
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
@@ -240,6 +241,93 @@ export async function POST(
       .returning();
 
     return Response.json({ id: job.id, jobId: job.id, status: "pending" }, { status: 201 });
+  } catch {
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// PUT /api/corpus/:id/service — Register or update commerce service (upsert)
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const auth = await verifyAgentApiKey(request, id);
+    if (!auth.ok) return auth.response;
+
+    const body = await request.json();
+    const { serviceName, description, price, walletAddress, chains } = body;
+
+    if (!serviceName || price == null) {
+      return Response.json(
+        { error: "serviceName and price are required" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof price !== "number" || price <= 0) {
+      return Response.json(
+        { error: "price must be a positive number" },
+        { status: 400 }
+      );
+    }
+
+    // Get agent wallet as fallback for walletAddress
+    const corpus = await db
+      .select({ agentWalletAddress: cppCorpus.agentWalletAddress })
+      .from(cppCorpus)
+      .where(eq(cppCorpus.id, id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    const serviceWallet = walletAddress || corpus?.agentWalletAddress;
+    if (!serviceWallet) {
+      return Response.json(
+        { error: "walletAddress is required (no agent wallet available as fallback)" },
+        { status: 400 }
+      );
+    }
+
+    // Check if service already exists for this corpus
+    const existing = await db
+      .select({ id: cppCommerceServices.id })
+      .from(cppCommerceServices)
+      .where(eq(cppCommerceServices.corpusId, id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (existing) {
+      // Update existing service
+      const [updated] = await db
+        .update(cppCommerceServices)
+        .set({
+          serviceName,
+          description: description ?? null,
+          price: String(price),
+          walletAddress: serviceWallet,
+          chains: chains ?? ["arc"],
+        })
+        .where(eq(cppCommerceServices.corpusId, id))
+        .returning();
+      return Response.json(updated);
+    }
+
+    // Create new service
+    const [service] = await db
+      .insert(cppCommerceServices)
+      .values({
+        corpusId: id,
+        serviceName,
+        description: description ?? null,
+        price: String(price),
+        walletAddress: serviceWallet,
+        chains: chains ?? ["arc"],
+      })
+      .returning();
+
+    return Response.json(service, { status: 201 });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

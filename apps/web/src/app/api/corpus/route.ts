@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { cppCorpus, cppPatrons } from "@/db/schema";
+import { cppCorpus, cppPatrons, cppCommerceServices } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { createAgentWallet } from "@/lib/circle";
@@ -217,6 +217,21 @@ export async function POST(request: NextRequest) {
         pulseAmount: Math.floor((supply * cShare) / 100),
         share: String(cShare),
       });
+    }
+
+    // Create Commerce Service if service info provided
+    const { serviceName, serviceDescription, servicePrice } = body;
+    if (serviceName && servicePrice) {
+      const serviceWallet = agentWalletAddress || creatorAddress || walletAddress;
+      if (serviceWallet) {
+        await db.insert(cppCommerceServices).values({
+          corpusId: corpus.id,
+          serviceName,
+          description: serviceDescription ?? description,
+          price: String(servicePrice),
+          walletAddress: serviceWallet,
+        });
+      }
     }
 
     // Return corpus without apiKey (return it only once in a separate field)

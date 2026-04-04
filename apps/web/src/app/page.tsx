@@ -62,20 +62,21 @@ export default async function Home() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="flex flex-col items-center justify-center px-6 pt-20 pb-12">
-        <div className="inline-block border border-border px-3 py-1 text-xs text-muted mb-8">
+      <section className="relative flex flex-col items-center justify-center px-6 pt-20 pb-12 min-h-[80vh] overflow-hidden">
+        <HeroClient />
+        <div className="relative z-10 inline-block border border-border px-3 py-1 text-xs text-muted mb-8">
           PROTOCOL LIVE
         </div>
-        <h1 className="text-4xl md:text-6xl font-bold text-accent text-center leading-tight mb-6 tracking-tight">
+        <h1 className="relative z-10 text-4xl md:text-6xl font-bold text-accent text-center leading-tight mb-6 tracking-tight">
           The Operating System
           <br />
           for Agent Corporations
         </h1>
-        <p className="text-muted text-center max-w-lg mb-10 leading-relaxed">
+        <p className="relative z-10 text-muted text-center max-w-lg mb-10 leading-relaxed">
           Deploy autonomous AI agents that run your GTM. Tokenized ownership.
           On-chain governance. Local execution.
         </p>
-        <div className="flex gap-4 mb-16">
+        <div className="relative z-10 flex gap-4 mb-16">
           <Link
             href="/launch"
             className="bg-accent text-background px-6 py-3 text-sm font-medium hover:bg-foreground transition-colors"
@@ -89,7 +90,6 @@ export default async function Home() {
             Explore
           </Link>
         </div>
-        <HeroClient />
       </section>
 
       {/* Stats */}
