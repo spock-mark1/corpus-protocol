@@ -1,28 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/components/wallet-gate";
 
 type Playbook = {
   id: string;
   title: string;
   corpus: string;
+  corpusId: string;
   category: string;
   channel: string;
   description: string;
   price: number;
-  rating: number;
-  reviews: number;
   purchases: number;
   version: number;
-  metrics: {
-    impressions: number;
-    engagementRate: number;
-    conversions: number;
-    periodDays: number;
-  };
+  impressions: number;
+  engagementRate: number;
+  conversions: number;
+  periodDays: number;
   tags: string[];
   createdAt: string;
+  status: string;
+};
+
+type PurchasedItem = {
+  purchaseId: string;
+  appliedAt: string | null;
+  txHash: string | null;
+  purchasedAt: string;
+  playbook: {
+    id: string;
+    title: string;
+    corpus: string;
+    category: string;
+    channel: string;
+    price: number;
+    version: number;
+  };
 };
 
 const CATEGORIES = [
@@ -36,159 +50,71 @@ const CATEGORIES = [
 
 const CHANNELS = ["All", "X", "LinkedIn", "Reddit", "Product Hunt"];
 
-const MOCK_PLAYBOOKS: Playbook[] = [
-  {
-    id: "pb_001",
-    title: "SaaS Developer Outreach on X",
-    corpus: "MarketBot Alpha",
-    category: "Channel Strategy",
-    channel: "X",
-    description:
-      "3-week proven strategy for reaching indie developers on X. Includes content calendar, engagement triggers, and reply patterns that drove 4.8% engagement.",
-    price: 0.5,
-    rating: 4.8,
-    reviews: 23,
-    purchases: 156,
-    version: 3,
-    metrics: {
-      impressions: 45200,
-      engagementRate: 4.8,
-      conversions: 23,
-      periodDays: 21,
-    },
-    tags: ["saas", "developers", "outreach"],
-    createdAt: "2025-03-15",
-  },
-  {
-    id: "pb_002",
-    title: "Tech Blog to X Thread Converter",
-    corpus: "ContentForge",
-    category: "Content Templates",
-    channel: "X",
-    description:
-      "Prompt set that transforms long-form technical blog posts into engaging X thread series. Optimized for developer audiences with code snippet formatting.",
-    price: 0.25,
-    rating: 4.5,
-    reviews: 41,
-    purchases: 312,
-    version: 5,
-    metrics: {
-      impressions: 89400,
-      engagementRate: 3.2,
-      conversions: 67,
-      periodDays: 30,
-    },
-    tags: ["content", "threads", "blogs"],
-    createdAt: "2025-02-28",
-  },
-  {
-    id: "pb_003",
-    title: "B2B Decision Maker Targeting",
-    corpus: "GrowthEngine",
-    category: "Targeting",
-    channel: "LinkedIn",
-    description:
-      "Identifies and engages B2B decision makers (VP/C-level) using LinkedIn profile signals. Includes connection request templates and follow-up sequences.",
-    price: 1.2,
-    rating: 4.9,
-    reviews: 12,
-    purchases: 89,
-    version: 2,
-    metrics: {
-      impressions: 12800,
-      engagementRate: 8.1,
-      conversions: 34,
-      periodDays: 14,
-    },
-    tags: ["b2b", "linkedin", "targeting"],
-    createdAt: "2025-03-22",
-  },
-  {
-    id: "pb_004",
-    title: "Negative Mention Crisis Response",
-    corpus: "ShieldBot",
-    category: "Response",
-    channel: "X",
-    description:
-      "Automated response strategy for handling negative mentions, complaints, and potential PR issues. Escalation rules and tone-matched reply templates.",
-    price: 0.75,
-    rating: 4.3,
-    reviews: 8,
-    purchases: 45,
-    version: 1,
-    metrics: {
-      impressions: 5600,
-      engagementRate: 12.4,
-      conversions: 0,
-      periodDays: 30,
-    },
-    tags: ["crisis", "response", "pr"],
-    createdAt: "2025-03-10",
-  },
-  {
-    id: "pb_005",
-    title: "Product Hunt Launch Automation",
-    corpus: "LaunchPad Pro",
-    category: "Growth Hacks",
-    channel: "Product Hunt",
-    description:
-      "24-hour launch playbook covering pre-launch community warm-up, launch day posting cadence, comment response timing, and cross-platform amplification.",
-    price: 2.0,
-    rating: 4.7,
-    reviews: 19,
-    purchases: 67,
-    version: 4,
-    metrics: {
-      impressions: 34500,
-      engagementRate: 6.2,
-      conversions: 189,
-      periodDays: 3,
-    },
-    tags: ["launch", "product-hunt", "growth"],
-    createdAt: "2025-01-20",
-  },
-  {
-    id: "pb_006",
-    title: "Reddit Developer Community Seeding",
-    corpus: "CommunityBot",
-    category: "Channel Strategy",
-    channel: "Reddit",
-    description:
-      "Non-spammy approach to building presence in developer subreddits. Karma-building strategy, value-first commenting patterns, and organic post timing.",
-    price: 0.6,
-    rating: 4.6,
-    reviews: 15,
-    purchases: 102,
-    version: 2,
-    metrics: {
-      impressions: 28700,
-      engagementRate: 5.4,
-      conversions: 41,
-      periodDays: 28,
-    },
-    tags: ["reddit", "community", "organic"],
-    createdAt: "2025-02-14",
-  },
-];
-
 export default function MarketplacePage() {
-  const { isConnected, connect } = useWallet();
+  const { isConnected, address, connect } = useWallet();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [channel, setChannel] = useState("All");
   const [selected, setSelected] = useState<Playbook | null>(null);
   const [tab, setTab] = useState<"browse" | "my" | "purchased">("browse");
 
-  const filtered = MOCK_PLAYBOOKS.filter((p) => {
-    const matchSearch =
-      !search ||
-      p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase()) ||
-      p.tags.some((t) => t.includes(search.toLowerCase()));
-    const matchCat = category === "All" || p.category === category;
-    const matchCh = channel === "All" || p.channel === channel;
-    return matchSearch && matchCat && matchCh;
-  });
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
+  const [myPlaybooks, setMyPlaybooks] = useState<Playbook[]>([]);
+  const [purchased, setPurchased] = useState<PurchasedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch browse playbooks
+  const fetchPlaybooks = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (category !== "All") params.set("category", category);
+    if (channel !== "All") params.set("channel", channel);
+    if (search) params.set("search", search);
+    const res = await fetch(`/api/playbooks?${params}`);
+    if (res.ok) setPlaybooks(await res.json());
+    setLoading(false);
+  }, [category, channel, search]);
+
+  useEffect(() => {
+    if (tab === "browse") fetchPlaybooks();
+  }, [tab, fetchPlaybooks]);
+
+  // Fetch my playbooks
+  useEffect(() => {
+    if (tab === "my" && isConnected && address) {
+      setLoading(true);
+      fetch(`/api/playbooks/my?wallet=${address}`)
+        .then((r) => r.json())
+        .then(setMyPlaybooks)
+        .finally(() => setLoading(false));
+    }
+  }, [tab, isConnected, address]);
+
+  // Fetch purchased
+  useEffect(() => {
+    if (tab === "purchased" && isConnected && address) {
+      setLoading(true);
+      fetch(`/api/playbooks/purchased?wallet=${address}`)
+        .then((r) => r.json())
+        .then(setPurchased)
+        .finally(() => setLoading(false));
+    }
+  }, [tab, isConnected, address]);
+
+  const handlePurchase = async (playbookId: string) => {
+    if (!address) return;
+    const res = await fetch(`/api/playbooks/${playbookId}/purchase`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buyerAddress: address }),
+    });
+    if (res.ok) {
+      setSelected(null);
+      fetchPlaybooks();
+    }
+  };
+
+  const totalPurchases = playbooks.reduce((s, p) => s + p.purchases, 0);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
@@ -205,8 +131,7 @@ export default function MarketplacePage() {
         </div>
         <div className="text-right text-xs text-muted">
           <div>
-            {MOCK_PLAYBOOKS.length} playbooks /{" "}
-            {MOCK_PLAYBOOKS.reduce((s, p) => s + p.purchases, 0)} purchases
+            {playbooks.length} playbooks / {totalPurchases} purchases
           </div>
         </div>
       </div>
@@ -287,13 +212,17 @@ export default function MarketplacePage() {
           </div>
 
           {/* Grid */}
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-20 text-muted text-sm">
+              Loading...
+            </div>
+          ) : playbooks.length === 0 ? (
             <div className="text-center py-20 text-muted text-sm">
               No playbooks found matching your criteria.
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map((p) => (
+              {playbooks.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => setSelected(p)}
@@ -317,14 +246,10 @@ export default function MarketplacePage() {
                       <span className="text-foreground">{p.corpus}</span>
                     </span>
                     <span className="text-accent font-bold">
-                      ${p.price.toFixed(2)}
+                      ${Number(p.price).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-3 text-xs text-muted">
-                    <span>
-                      {"*".repeat(Math.round(p.rating))}{" "}
-                      {p.rating.toFixed(1)}
-                    </span>
                     <span>{p.purchases} sold</span>
                     <span>v{p.version}</span>
                   </div>
@@ -369,10 +294,6 @@ export default function MarketplacePage() {
                 <div className="flex items-center gap-2 text-xs text-muted">
                   by{" "}
                   <span className="text-foreground">{selected.corpus}</span>
-                  <span>
-                    {"*".repeat(Math.round(selected.rating))}{" "}
-                    {selected.rating.toFixed(1)} ({selected.reviews} reviews)
-                  </span>
                 </div>
               </div>
 
@@ -384,19 +305,19 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <MetricCard
                     label="Impressions"
-                    value={selected.metrics.impressions.toLocaleString()}
+                    value={selected.impressions.toLocaleString()}
                   />
                   <MetricCard
                     label="Engagement Rate"
-                    value={`${selected.metrics.engagementRate}%`}
+                    value={`${Number(selected.engagementRate)}%`}
                   />
                   <MetricCard
                     label="Conversions"
-                    value={selected.metrics.conversions.toString()}
+                    value={selected.conversions.toString()}
                   />
                   <MetricCard
                     label="Test Period"
-                    value={`${selected.metrics.periodDays}d`}
+                    value={`${selected.periodDays}d`}
                   />
                 </div>
                 <p className="text-xs text-muted mt-4">
@@ -411,31 +332,11 @@ export default function MarketplacePage() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    {
-                      name: "strategy_prompt",
-                      label: "Strategy Prompt",
-                      locked: true,
-                    },
-                    {
-                      name: "content_templates",
-                      label: "Content Templates (5)",
-                      locked: true,
-                    },
-                    {
-                      name: "targeting_rules",
-                      label: "Targeting Rules (8)",
-                      locked: true,
-                    },
-                    {
-                      name: "posting_schedule",
-                      label: "Posting Schedule",
-                      locked: true,
-                    },
-                    {
-                      name: "response_patterns",
-                      label: "Response Patterns (12)",
-                      locked: true,
-                    },
+                    { name: "strategy_prompt", label: "Strategy Prompt", locked: true },
+                    { name: "content_templates", label: "Content Templates (5)", locked: true },
+                    { name: "targeting_rules", label: "Targeting Rules (8)", locked: true },
+                    { name: "posting_schedule", label: "Posting Schedule", locked: true },
+                    { name: "response_patterns", label: "Response Patterns (12)", locked: true },
                   ].map((item) => (
                     <div
                       key={item.name}
@@ -457,13 +358,16 @@ export default function MarketplacePage() {
             <div className="space-y-4">
               <div className="bg-surface border border-border p-6">
                 <div className="text-2xl font-bold text-accent mb-1">
-                  ${selected.price.toFixed(2)}
+                  ${Number(selected.price).toFixed(2)}
                 </div>
                 <div className="text-xs text-muted mb-6">
                   USDC via x402
                 </div>
                 {isConnected ? (
-                  <button className="w-full bg-accent text-background py-2.5 text-sm font-medium hover:bg-foreground transition-colors mb-3">
+                  <button
+                    onClick={() => handlePurchase(selected.id)}
+                    className="w-full bg-accent text-background py-2.5 text-sm font-medium hover:bg-foreground transition-colors mb-3"
+                  >
                     Purchase Playbook
                   </button>
                 ) : (
@@ -497,7 +401,7 @@ export default function MarketplacePage() {
                 <div className="flex justify-between">
                   <span className="text-muted">Published</span>
                   <span className="text-foreground">
-                    {selected.createdAt}
+                    {new Date(selected.createdAt).toLocaleDateString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -529,49 +433,9 @@ export default function MarketplacePage() {
       {/* My Playbooks tab */}
       {tab === "my" && (
         isConnected ? (
-          <div className="space-y-4">
-            <div className="bg-surface border border-border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-bold text-accent">
-                    SaaS Developer Outreach on X
-                  </h3>
-                  <p className="text-xs text-muted mt-1">
-                    Auto-generated from MarketBot Alpha activity
-                  </p>
-                </div>
-                <span className="text-xs text-green-400">[ACTIVE]</span>
-              </div>
-              <div className="grid grid-cols-4 gap-4 text-xs mb-4">
-                <div>
-                  <div className="text-muted">Revenue</div>
-                  <div className="text-accent font-bold">$78.00</div>
-                </div>
-                <div>
-                  <div className="text-muted">Sales</div>
-                  <div className="text-foreground">156</div>
-                </div>
-                <div>
-                  <div className="text-muted">Rating</div>
-                  <div className="text-foreground">4.8</div>
-                </div>
-                <div>
-                  <div className="text-muted">Version</div>
-                  <div className="text-foreground">v3</div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
-                  Edit Price
-                </button>
-                <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
-                  Update Version
-                </button>
-                <button className="px-3 py-1.5 text-xs border border-border text-muted hover:text-foreground transition-colors">
-                  Deactivate
-                </button>
-              </div>
-            </div>
+          loading ? (
+            <div className="text-center py-20 text-muted text-sm">Loading...</div>
+          ) : myPlaybooks.length === 0 ? (
             <div className="border border-dashed border-border p-8 text-center">
               <p className="text-sm text-muted mb-2">
                 Playbooks are auto-generated when your agent accumulates enough
@@ -581,7 +445,55 @@ export default function MarketplacePage() {
                 Keep your Prime Agent running to build new playbooks.
               </p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              {myPlaybooks.map((p) => (
+                <div key={p.id} className="bg-surface border border-border p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-accent">
+                        {p.title}
+                      </h3>
+                      <p className="text-xs text-muted mt-1">
+                        Auto-generated from {p.corpus} activity
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs ${
+                        p.status === "active"
+                          ? "text-green-400"
+                          : "text-yellow-400"
+                      }`}
+                    >
+                      [{p.status.toUpperCase()}]
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4 text-xs mb-4">
+                    <div>
+                      <div className="text-muted">Revenue</div>
+                      <div className="text-accent font-bold">
+                        ${(Number(p.price) * p.purchases).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted">Sales</div>
+                      <div className="text-foreground">{p.purchases}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted">Engagement</div>
+                      <div className="text-foreground">
+                        {Number(p.engagementRate)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted">Version</div>
+                      <div className="text-foreground">v{p.version}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : (
           <WalletRequiredTab
             message="Connect your wallet to view and manage your published playbooks."
@@ -593,52 +505,48 @@ export default function MarketplacePage() {
       {/* Purchased tab */}
       {tab === "purchased" && (
         isConnected ? (
-          <div className="space-y-4">
-            {[
-              {
-                title: "Product Hunt Launch Automation",
-                corpus: "LaunchPad Pro",
-                status: "APPLIED",
-                appliedDate: "2025-03-25",
-                price: 2.0,
-              },
-              {
-                title: "Reddit Developer Community Seeding",
-                corpus: "CommunityBot",
-                status: "NOT APPLIED",
-                appliedDate: null,
-                price: 0.6,
-              },
-            ].map((p) => (
-              <div
-                key={p.title}
-                className="bg-surface border border-border p-6 flex items-center justify-between"
-              >
-                <div>
-                  <h3 className="text-sm font-bold text-accent">{p.title}</h3>
-                  <p className="text-xs text-muted mt-1">
-                    by {p.corpus} / ${p.price.toFixed(2)}
-                  </p>
+          loading ? (
+            <div className="text-center py-20 text-muted text-sm">Loading...</div>
+          ) : purchased.length === 0 ? (
+            <div className="text-center py-20 text-muted text-sm">
+              No purchased playbooks yet.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {purchased.map((pp) => (
+                <div
+                  key={pp.purchaseId}
+                  className="bg-surface border border-border p-6 flex items-center justify-between"
+                >
+                  <div>
+                    <h3 className="text-sm font-bold text-accent">
+                      {pp.playbook.title}
+                    </h3>
+                    <p className="text-xs text-muted mt-1">
+                      by {pp.playbook.corpus} / $
+                      {Number(pp.playbook.price).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-xs ${
+                        pp.appliedAt
+                          ? "text-green-400"
+                          : "text-yellow-400"
+                      }`}
+                    >
+                      [{pp.appliedAt ? "APPLIED" : "NOT APPLIED"}]
+                    </span>
+                    {!pp.appliedAt && (
+                      <button className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors">
+                        Apply to Agent
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`text-xs ${
-                      p.status === "APPLIED"
-                        ? "text-green-400"
-                        : "text-yellow-400"
-                    }`}
-                  >
-                    [{p.status}]
-                  </span>
-                  {p.status === "NOT APPLIED" && (
-                    <button className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors">
-                      Apply to Agent
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : (
           <WalletRequiredTab
             message="Connect your wallet to view your purchased playbooks."

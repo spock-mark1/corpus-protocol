@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Verify API key from Authorization header against the corpus's stored key.
@@ -26,10 +28,12 @@ export async function verifyAgentApiKey(
 
   const token = authHeader.slice(7);
 
-  const corpus = await prisma.corpus.findUnique({
-    where: { id: corpusId },
-    select: { id: true, apiKey: true },
-  });
+  const corpus = await db
+    .select({ id: cppCorpus.id, apiKey: cppCorpus.apiKey })
+    .from(cppCorpus)
+    .where(eq(cppCorpus.id, corpusId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
 
   if (!corpus) {
     return {

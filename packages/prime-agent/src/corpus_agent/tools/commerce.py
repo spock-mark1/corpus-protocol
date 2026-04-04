@@ -1,0 +1,243 @@
+"""Commerce tools — x402 inter-Corpus service marketplace + Playbook trading."""
+
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING
+
+from corpus_agent.payments.x402_signer import X402Signer
+from corpus_agent.tools.registry import tool
+
+if TYPE_CHECKING:
+    from corpus_agent.api_client import CorpusAPIClient
+    from corpus_agent.config import Settings
+    from corpus_agent.db import LocalDB
+
+# Injected by registry.build_all_tools
+_api: CorpusAPIClient = None  # type: ignore[assignment]
+_db: LocalDB = None  # type: ignore[assignment]
+_settings: Settings = None  # type: ignore[assignment]
+_signer: X402Signer | None = None
+
+# USDC on Base
+USDC_BASE_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+
+def _get_signer() -> X402Signer:
+    global _signer
+    if _signer is None:
+        _signer = X402Signer(_settings.base_wallet_private_key)
+    return _signer
+
+
+@tool(
+    "discover_services",
+    "Search the x402 service marketplace for available services and Playbooks from other Corpuses",
+)
+async def discover_services(category: str = "", target: str = "") -> dict:
+    services = await _api.discover_services(
+        category=category or None,
+        target=target or None,
+    )
+    return {"services": services, "count": len(services)}
+
+
+@tool(
+    "purchase_service",
+    "Purchase a service or Playbook from another Corpus via x402 (USDC on Base). Handles 402→sign→submit flow.",
+)
+async def purchase_service(corpus_id: str, service_type: str = "", payload: str = "{}") -> dict:
+    try:
+        payload_dict = json.loads(payload)
+    except json.JSONDecodeError:
+        payload_dict = {}
+
+    # Step 1: GET service → expect 402
+    response = await _api.get_service(corpus_id, service_type=service_type or None)
+
+    if response.status_code != 402:
+        return {"error": f"Expected 402, got {response.status_code}", "body": response.text[:200]}
+
+    # Parse 402 response
+    payment_details = response.json()
+    price = payment_details.get("price", 0)
+    payee = payment_details.get("payee", "")
+    token = payment_details.get("token", USDC_BASE_ADDRESS)
+    chain_id = payment_details.get("chainId", 8453)
+
+    # Check approval threshold
+    threshold = float(_settings.approval_threshold)
+    if price >= threshold:
+        result = await _api.create_approval(
+            _settings.corpus_id,
+            type_="transaction",
+            title=f"x402 purchase from Corpus {corpus_id}: ${price}",
+            description=f"Service: {service_type}, Payload: {payload}",
+            amount=price,
+        )
+        return {
+            "status": "approval_requested",
+            "approval_id": result.get("id") if result else None,
+            "price": price,
+            "corpus_id": corpus_id,
+        }
+
+    # Step 2: Sign payment (EIP-3009)
+    signer = _get_signer()
+    await signer.initialize()
+
+    # Convert price to USDC smallest unit (6 decimals)
+    amount_units = int(float(price) * 1_000_000)
+
+    sign_result = await signer.sign_payment(
+        payee=payee,
+        amount=amount_units,
+        token_address=token,
+        chain_id=chain_id,
+    )
+
+    if "error" in sign_result:
+        return sign_result
+
+    # Step 3: POST with X-PAYMENT header
+    submit_result = await _api.submit_commerce(
+        corpus_id,
+        payment_header=sign_result["payment_header"],
+        payload=payload_dict,
+    )
+
+    if not submit_result:
+        return {"error": "Commerce submission failed"}
+
+    job_id = submit_result.get("jobId") or submit_result.get("id", "")
+
+    # Track in local DB
+    _db.add_commerce_job(job_id, corpus_id, service_type, payload_dict)
+
+    return {
+        "status": "submitted",
+        "job_id": job_id,
+        "price": price,
+        "corpus_id": corpus_id,
+        "service_type": service_type,
+    }
+
+
+@tool(
+    "poll_service_result",
+    "Poll for the result of a purchased service. Returns the result or 'pending' status.",
+)
+async def poll_service_result(job_id: str) -> dict:
+    result = await _api.get_job_result(job_id)
+
+    if not result:
+        return {"status": "pending", "job_id": job_id}
+
+    status = result.get("status", "pending")
+    if status == "completed":
+        _db.update_commerce_status(job_id, "completed")
+
+        # If it's a playbook, save it
+        job_result = result.get("result", {})
+        if isinstance(job_result, dict) and "templates" in job_result:
+            name = job_result.get("name", f"Playbook from job {job_id}")
+            _db.save_playbook(name, job_result, source_corpus=result.get("corpusId"))
+            return {
+                "status": "completed",
+                "type": "playbook",
+                "playbook_name": name,
+                "data": job_result,
+            }
+
+        return {"status": "completed", "result": job_result}
+
+    return {"status": status, "job_id": job_id}
+
+
+@tool(
+    "apply_playbook",
+    "Apply a purchased GTM Playbook to update agent strategy. The playbook's schedule, templates, and tactics will inform future actions.",
+)
+async def apply_playbook(playbook_name: str) -> dict:
+    """Find and activate a playbook by name."""
+    conn = _db._conn
+    rows = conn.execute(
+        "SELECT id, name, data FROM playbooks WHERE name LIKE ?", (f"%{playbook_name}%",)
+    ).fetchall()
+
+    if not rows:
+        return {"error": f"No playbook found matching '{playbook_name}'"}
+
+    row = rows[0]
+    _db.apply_playbook(row["id"])
+
+    return {
+        "status": "applied",
+        "playbook": row["name"],
+        "message": "Playbook is now active. Future agent cycles will use this strategy.",
+    }
+
+
+# ══════════════════════��════════════════════════════════════════════
+# Provider-side tools — this Corpus fulfills incoming x402 jobs
+# ═══════════════════════════════════════════════════════════════════
+
+
+@tool(
+    "get_pending_jobs",
+    "Check for incoming x402 service requests that other Corpuses have purchased from us. Returns pending jobs to fulfill.",
+)
+async def get_pending_jobs() -> dict:
+    jobs = await _api.get_pending_jobs()
+    if not jobs:
+        return {"status": "no_pending_jobs", "count": 0}
+    summary = [
+        {
+            "job_id": j.get("id"),
+            "service": j.get("serviceName"),
+            "requester": j.get("requesterCorpusId"),
+            "payload": j.get("payload"),
+        }
+        for j in jobs
+    ]
+    return {"jobs": summary, "count": len(summary)}
+
+
+@tool(
+    "fulfill_job",
+    "Submit the result for an x402 service job we received. Call this after performing the requested service (e.g. generating an image, writing copy, producing a playbook).",
+)
+async def fulfill_job(job_id: str, result: str = "{}") -> dict:
+    try:
+        result_dict = json.loads(result)
+    except json.JSONDecodeError:
+        result_dict = {"text": result}
+
+    response = await _api.submit_job_result(job_id, result_dict)
+    if response:
+        # Report revenue — we earned money from this service
+        _db.add_activity("commerce", f"Fulfilled job {job_id}", "x402")
+        return {"status": "fulfilled", "job_id": job_id}
+    return {"error": f"Failed to submit result for job {job_id}"}
+
+
+@tool(
+    "register_service",
+    "Register or update this Corpus's x402 service offering on the marketplace so other agents can discover and purchase it.",
+)
+async def register_service(
+    service_name: str,
+    description: str,
+    price: float,
+    wallet_address: str = "",
+) -> dict:
+    # This calls a Web API to upsert the CommerceService record
+    # For now, return instructions since CommerceService is set at Genesis
+    return {
+        "status": "info",
+        "message": (
+            "Service registration is configured during Corpus Genesis on the Launchpad. "
+            f"To update, modify the service settings on the Dashboard. "
+            f"Current request: {service_name} at ${price}"
+        ),
+    }

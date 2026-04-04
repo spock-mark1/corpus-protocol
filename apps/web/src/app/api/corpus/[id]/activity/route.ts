@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus, cppActivities } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
 
 // GET /api/corpus/:id/activity — Get activities
@@ -10,16 +12,23 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const corpus = await prisma.corpus.findUnique({ where: { id } });
+    const corpus = await db
+      .select({ id: cppCorpus.id })
+      .from(cppCorpus)
+      .where(eq(cppCorpus.id, id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
     if (!corpus) {
       return Response.json({ error: "Corpus not found" }, { status: 404 });
     }
 
-    const activities = await prisma.activity.findMany({
-      where: { corpusId: id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    const activities = await db
+      .select()
+      .from(cppActivities)
+      .where(eq(cppActivities.corpusId, id))
+      .orderBy(desc(cppActivities.createdAt))
+      .limit(50);
 
     return Response.json(activities);
   } catch {
@@ -65,15 +74,16 @@ export async function POST(
       );
     }
 
-    const activity = await prisma.activity.create({
-      data: {
+    const [activity] = await db
+      .insert(cppActivities)
+      .values({
         corpusId: id,
         type,
         content,
         channel,
         status: status ?? "completed",
-      },
-    });
+      })
+      .returning();
 
     return Response.json(activity, { status: 201 });
   } catch {

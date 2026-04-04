@@ -1,10 +1,13 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { asc } from "drizzle-orm";
 import { LeaderboardClient } from "./leaderboard-client";
 
 export default async function LeaderboardPage() {
-  const corpuses = await prisma.corpus.findMany({
-    include: {
-      _count: { select: { patrons: true, activities: true } },
+  const corpuses = await db.query.cppCorpus.findMany({
+    orderBy: asc(cppCorpus.createdAt),
+    with: {
+      patrons: true,
       revenues: true,
     },
   });
@@ -21,7 +24,7 @@ export default async function LeaderboardPage() {
         category: c.category,
         revenue: totalRevenue,
         marketCap: Number(c.pulsePrice) * c.totalSupply,
-        patrons: c._count.patrons,
+        patrons: c.patrons.length,
         pulsePrice: Number(c.pulsePrice),
       };
     })

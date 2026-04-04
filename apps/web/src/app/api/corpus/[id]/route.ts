@@ -1,4 +1,6 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 // GET /api/corpus/:id — Corpus detail + configuration
 export async function GET(
@@ -8,13 +10,13 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const corpus = await prisma.corpus.findUnique({
-      where: { id },
-      include: {
+    const corpus = await db.query.cppCorpus.findFirst({
+      where: eq(cppCorpus.id, id),
+      with: {
         patrons: true,
-        activities: { orderBy: { createdAt: "desc" }, take: 20 },
-        approvals: { orderBy: { createdAt: "desc" }, take: 10 },
-        revenues: { orderBy: { createdAt: "desc" }, take: 20 },
+        activities: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 20 },
+        approvals: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 10 },
+        revenues: { orderBy: (r, { desc }) => [desc(r.createdAt)], limit: 20 },
         commerceServices: true,
       },
     });

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus, cppPatrons } from "@/db/schema";
+import { desc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design"];
@@ -7,21 +9,55 @@ const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design"];
 // GET /api/corpus — List all corpuses
 export async function GET() {
   try {
-    const corpuses = await prisma.corpus.findMany({
-      include: {
-        _count: { select: { patrons: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const patronCount = db
+      .select({
+        corpusId: cppPatrons.corpusId,
+        count: sql<number>`count(*)::int`.as("count"),
+      })
+      .from(cppPatrons)
+      .groupBy(cppPatrons.corpusId)
+      .as("patronCount");
 
-    const data = corpuses.map((c: (typeof corpuses)[number]) => {
-      const { apiKey: _apiKey, ...rest } = c;
-      return {
-        ...rest,
-        patrons: c._count.patrons,
-        _count: undefined,
-      };
-    });
+    const corpuses = await db
+      .select({
+        id: cppCorpus.id,
+        onChainId: cppCorpus.onChainId,
+        agentName: cppCorpus.agentName,
+        name: cppCorpus.name,
+        category: cppCorpus.category,
+        description: cppCorpus.description,
+        status: cppCorpus.status,
+        hederaTokenId: cppCorpus.hederaTokenId,
+        pulsePrice: cppCorpus.pulsePrice,
+        totalSupply: cppCorpus.totalSupply,
+        creatorShare: cppCorpus.creatorShare,
+        investorShare: cppCorpus.investorShare,
+        treasuryShare: cppCorpus.treasuryShare,
+        persona: cppCorpus.persona,
+        targetAudience: cppCorpus.targetAudience,
+        channels: cppCorpus.channels,
+        toneVoice: cppCorpus.toneVoice,
+        approvalThreshold: cppCorpus.approvalThreshold,
+        gtmBudget: cppCorpus.gtmBudget,
+        minPatronPulse: cppCorpus.minPatronPulse,
+        agentOnline: cppCorpus.agentOnline,
+        agentLastSeen: cppCorpus.agentLastSeen,
+        walletAddress: cppCorpus.walletAddress,
+        creatorAddress: cppCorpus.creatorAddress,
+        investorAddress: cppCorpus.investorAddress,
+        treasuryAddress: cppCorpus.treasuryAddress,
+        createdAt: cppCorpus.createdAt,
+        updatedAt: cppCorpus.updatedAt,
+        patrons: patronCount.count,
+      })
+      .from(cppCorpus)
+      .leftJoin(patronCount, eq(cppCorpus.id, patronCount.corpusId))
+      .orderBy(desc(cppCorpus.createdAt));
+
+    const data = corpuses.map((c) => ({
+      ...c,
+      patrons: c.patrons ?? 0,
+    }));
 
     return Response.json(data);
   } catch {
@@ -38,7 +74,6 @@ export async function POST(request: NextRequest) {
       name,
       category,
       description,
-      apiEndpoint,
       totalSupply,
       creatorShare,
       investorShare,
@@ -49,7 +84,15 @@ export async function POST(request: NextRequest) {
       approvalThreshold,
       gtmBudget,
       creatorAddress,
+      investorAddress,
+      treasuryAddress,
       walletAddress,
+      onChainId,
+      agentName,
+      toneVoice,
+      initialPrice,
+      minPatronPulse,
+      hederaTokenId,
     } = body;
 
     // Required fields
@@ -100,6 +143,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate wallet address uniqueness
+    const wallets = [creatorAddress, investorAddress, treasuryAddress].filter(Boolean);
+    if (wallets.length >= 2 && new Set(wallets).size !== wallets.length) {
+      return Response.json(
+        { error: "creatorAddress, investorAddress, and treasuryAddress must be unique" },
+        { status: 400 }
+      );
+    }
+
     // Validate numeric fields
     const supply = totalSupply ?? 1000000;
     if (typeof supply !== "number" || supply <= 0 || supply > 100_000_000) {
@@ -112,12 +164,12 @@ export async function POST(request: NextRequest) {
     // Generate API key for local agent
     const apiKey = `cpk_${randomBytes(24).toString("hex")}`;
 
-    const corpus = await prisma.corpus.create({
-      data: {
+    const [corpus] = await db
+      .insert(cppCorpus)
+      .values({
         name,
         category,
         description,
-        apiEndpoint,
         apiKey,
         totalSupply: supply,
         creatorShare: cShare,
@@ -126,23 +178,29 @@ export async function POST(request: NextRequest) {
         persona,
         targetAudience,
         channels: channels ?? [],
-        approvalThreshold: approvalThreshold ?? 10,
-        gtmBudget: gtmBudget ?? 200,
+        toneVoice: toneVoice ?? null,
+        approvalThreshold: String(approvalThreshold ?? 10),
+        gtmBudget: String(gtmBudget ?? 200),
+        pulsePrice: String(initialPrice ?? 0),
+        minPatronPulse: minPatronPulse ?? null,
         creatorAddress,
+        investorAddress,
+        treasuryAddress,
         walletAddress,
-      },
-    });
+        onChainId: onChainId ?? null,
+        agentName: agentName ?? null,
+        hederaTokenId: hederaTokenId ?? null,
+      })
+      .returning();
 
     // Create initial Patron (Creator)
     if (creatorAddress) {
-      await prisma.patron.create({
-        data: {
-          corpusId: corpus.id,
-          walletAddress: creatorAddress,
-          role: "Creator",
-          pulseAmount: Math.floor((supply * cShare) / 100),
-          share: cShare,
-        },
+      await db.insert(cppPatrons).values({
+        corpusId: corpus.id,
+        walletAddress: creatorAddress,
+        role: "Creator",
+        pulseAmount: Math.floor((supply * cShare) / 100),
+        share: String(cShare),
       });
     }
 

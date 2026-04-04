@@ -1,13 +1,15 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { desc } from "drizzle-orm";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
-  const corpuses = await prisma.corpus.findMany({
-    include: {
-      approvals: { where: { status: "pending" }, orderBy: { createdAt: "desc" } },
-      activities: { orderBy: { createdAt: "desc" }, take: 10 },
+  const corpuses = await db.query.cppCorpus.findMany({
+    with: {
+      approvals: { orderBy: (a, { desc: d }) => [d(a.createdAt)] },
+      activities: { orderBy: (a, { desc: d }) => [d(a.createdAt)], limit: 10 },
       revenues: true,
-      _count: { select: { patrons: true } },
+      patrons: true,
     },
   });
 
@@ -20,16 +22,18 @@ export default async function DashboardPage() {
     0
   );
   const pendingApprovals = corpuses.flatMap((c) =>
-    c.approvals.map((a) => ({
-      id: a.id,
-      corpusId: c.id,
-      corpusName: c.name,
-      type: a.type,
-      title: a.title,
-      description: a.description,
-      amount: a.amount ? `$${Number(a.amount)}` : null,
-      timestamp: a.createdAt.toISOString(),
-    }))
+    c.approvals
+      .filter((a) => a.status === "pending")
+      .map((a) => ({
+        id: a.id,
+        corpusId: c.id,
+        corpusName: c.name,
+        type: a.type,
+        title: a.title,
+        description: a.description,
+        amount: a.amount ? `$${Number(a.amount)}` : null,
+        timestamp: a.createdAt.toISOString(),
+      }))
   );
   const allActivities = corpuses
     .flatMap((c) =>

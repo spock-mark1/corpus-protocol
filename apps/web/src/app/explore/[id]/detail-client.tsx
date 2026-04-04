@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useWallet } from "@/components/wallet-gate";
 
 interface CorpusDetail {
@@ -16,17 +16,17 @@ interface CorpusDetail {
   creatorShare: number;
   investorShare: number;
   treasuryShare: number;
-  apiEndpoint: string;
   persona: string;
   targetAudience: string;
   channels: string[];
   approvalThreshold: number;
   gtmBudget: number;
+  minPatronPulse: number | null;
   agentOnline: boolean;
   createdAt: string;
   revenue: string;
   patronCount: number;
-  patrons: { walletAddress: string; role: string; pulseAmount: number; share: number }[];
+  patrons: { walletAddress: string; role: string; pulseAmount: number; share: number; status: string }[];
   activities: { id: string; type: string; content: string; channel: string; status: string; timestamp: string }[];
 }
 
@@ -43,7 +43,44 @@ const TYPE_ICONS: Record<string, string> = {
 
 export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const { isConnected, connect } = useWallet();
+  const [patronStatus, setPatronStatus] = useState<"none" | "loading" | "patron">(() => {
+    // Check if current wallet is already a patron (will be set by wallet address match)
+    return "none";
+  });
+  const { isConnected, connect, address } = useWallet();
+
+  const minRequired = corpus.minPatronPulse ?? Math.floor(corpus.totalSupply * 0.001);
+
+  // Check if connected wallet is already a patron
+  const isPatron = corpus.patrons.some(
+    (p) => p.walletAddress === address && p.status === "active"
+  );
+
+  // TODO: In production, fetch actual Pulse balance from Hedera.
+  // For now, use pulseAmount from patron record or 0.
+  const myPulseBalance = corpus.patrons.find((p) => p.walletAddress === address)?.pulseAmount ?? 0;
+  const meetsThreshold = myPulseBalance >= minRequired;
+
+  const handleBecomePatron = useCallback(async () => {
+    if (!address || isPatron) return;
+    setPatronStatus("loading");
+    try {
+      const res = await fetch(`/api/corpus/${corpus.id}/patrons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: address, pulseAmount: myPulseBalance }),
+      });
+      if (res.ok) {
+        setPatronStatus("patron");
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to register as Patron");
+        setPatronStatus("none");
+      }
+    } catch {
+      setPatronStatus("none");
+    }
+  }, [address, corpus.id, isPatron, myPulseBalance]);
 
   const REVENUE_HISTORY = [
     { month: "Oct", amount: 1200 },
@@ -79,9 +116,30 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
         <div className="flex gap-2">
           {isConnected ? (
             <>
-              <button className="bg-accent text-background px-5 py-2 text-sm font-medium hover:bg-foreground transition-colors">
-                Become Patron
-              </button>
+              {isPatron || patronStatus === "patron" ? (
+                <span className="border border-green-400/30 text-green-400 px-5 py-2 text-sm">
+                  Patron
+                </span>
+              ) : (
+                <div className="relative group">
+                  <button
+                    onClick={handleBecomePatron}
+                    disabled={!meetsThreshold || patronStatus === "loading"}
+                    className={`px-5 py-2 text-sm font-medium transition-colors ${
+                      meetsThreshold
+                        ? "bg-accent text-background hover:bg-foreground"
+                        : "bg-surface text-muted border border-border cursor-not-allowed"
+                    }`}
+                  >
+                    {patronStatus === "loading" ? "Registering..." : "Become Patron"}
+                  </button>
+                  {!meetsThreshold && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-surface border border-border text-xs text-muted whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      {minRequired.toLocaleString()} Pulse required
+                    </div>
+                  )}
+                </div>
+              )}
               <button className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors">
                 Buy Pulse
               </button>
@@ -146,8 +204,8 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                   <p className="text-foreground mt-1">${corpus.gtmBudget}/month</p>
                 </div>
                 <div>
-                  <span className="text-muted">API Endpoint</span>
-                  <p className="text-foreground mt-1 text-xs break-all">{corpus.apiEndpoint}</p>
+                  <span className="text-muted">Min Patron Pulse</span>
+                  <p className="text-foreground mt-1">{minRequired.toLocaleString()} Pulse</p>
                 </div>
                 <div>
                   <span className="text-muted">Channels</span>

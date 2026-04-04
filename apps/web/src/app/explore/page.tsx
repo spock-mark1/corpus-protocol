@@ -1,13 +1,15 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { desc } from "drizzle-orm";
 import { ExploreClient } from "./explore-client";
 
 export default async function ExplorePage() {
-  const corpuses = await prisma.corpus.findMany({
-    include: {
-      _count: { select: { patrons: true } },
+  const corpuses = await db.query.cppCorpus.findMany({
+    orderBy: desc(cppCorpus.createdAt),
+    with: {
+      patrons: true,
       revenues: true,
     },
-    orderBy: { createdAt: "desc" },
   });
 
   const data = corpuses.map((c) => ({
@@ -16,7 +18,7 @@ export default async function ExplorePage() {
     category: c.category,
     description: c.description,
     status: c.status,
-    patrons: c._count.patrons,
+    patrons: c.patrons.length,
     revenue: `$${c.revenues.reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString()}`,
     pulsePrice: `$${Number(c.pulsePrice).toFixed(2)}`,
   }));

@@ -1,23 +1,25 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus, cppApprovals } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
+import { verifyAgentApiKey } from "@/lib/auth";
 
 // GET /api/corpus/:id/approvals — Pending approval list
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
   try {
-    const corpus = await prisma.corpus.findUnique({ where: { id } });
-    if (!corpus) {
-      return Response.json({ error: "Corpus not found" }, { status: 404 });
-    }
+    const auth = await verifyAgentApiKey(request, id);
+    if (!auth.ok) return auth.response;
 
-    const approvals = await prisma.approval.findMany({
-      where: { corpusId: id },
-      orderBy: { createdAt: "desc" },
-    });
+    const approvals = await db
+      .select()
+      .from(cppApprovals)
+      .where(eq(cppApprovals.corpusId, id))
+      .orderBy(desc(cppApprovals.createdAt));
 
     return Response.json(approvals);
   } catch {
@@ -33,7 +35,13 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const corpus = await prisma.corpus.findUnique({ where: { id } });
+    const corpus = await db
+      .select()
+      .from(cppCorpus)
+      .where(eq(cppCorpus.id, id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
     if (!corpus) {
       return Response.json({ error: "Corpus not found" }, { status: 404 });
     }
@@ -64,15 +72,16 @@ export async function POST(
       );
     }
 
-    const approval = await prisma.approval.create({
-      data: {
+    const [approval] = await db
+      .insert(cppApprovals)
+      .values({
         corpusId: id,
         type,
         title,
         description,
-        amount,
-      },
-    });
+        amount: amount != null ? String(amount) : undefined,
+      })
+      .returning();
 
     return Response.json(approval, { status: 201 });
   } catch {

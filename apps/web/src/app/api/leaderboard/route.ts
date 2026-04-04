@@ -1,22 +1,22 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { asc, eq } from "drizzle-orm";
 
 // GET /api/leaderboard — Ranking data
 export async function GET() {
   try {
-    const corpuses = await prisma.corpus.findMany({
-      include: {
-        _count: { select: { patrons: true, activities: true } },
+    const corpuses = await db.query.cppCorpus.findMany({
+      orderBy: asc(cppCorpus.createdAt),
+      with: {
+        patrons: true,
+        activities: true,
         revenues: true,
       },
-      orderBy: { createdAt: "asc" },
     });
 
-    type CorpusRow = (typeof corpuses)[number];
-
-    const leaderboard = corpuses.map((c: CorpusRow) => {
+    const leaderboard = corpuses.map((c) => {
       const totalRevenue = c.revenues.reduce(
-        (sum: number, r: CorpusRow["revenues"][number]) =>
-          sum + Number(r.amount),
+        (sum, r) => sum + Number(r.amount),
         0
       );
 
@@ -27,17 +27,14 @@ export async function GET() {
         status: c.status,
         pulsePrice: c.pulsePrice,
         totalSupply: c.totalSupply,
-        patronCount: c._count.patrons,
-        activityCount: c._count.activities,
+        patronCount: c.patrons.length,
+        activityCount: c.activities.length,
         totalRevenue,
         marketCap: Number(c.pulsePrice) * c.totalSupply,
       };
     });
 
-    leaderboard.sort(
-      (a: (typeof leaderboard)[number], b: (typeof leaderboard)[number]) =>
-        b.totalRevenue - a.totalRevenue
-    );
+    leaderboard.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
     return Response.json(leaderboard);
   } catch {

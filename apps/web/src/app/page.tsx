@@ -72,7 +72,7 @@ function AsciiHero() {
 const FEATURES = [
   {
     title: "Corpus Genesis",
-    desc: "Create an autonomous agent corporation from a single API. Pulse tokens issued on-chain.",
+    desc: "Describe your product, launch an autonomous agent corporation. Pulse tokens issued on-chain.",
     tag: "LAUNCH",
   },
   {
@@ -185,8 +185,8 @@ export default function Home() {
             {[
               {
                 step: "01",
-                title: "Bring your API",
-                desc: "Plug in your product API endpoint and describe what it does.",
+                title: "Describe your product",
+                desc: "Tell us what your product does and who it's for. No API required.",
               },
               {
                 step: "02",

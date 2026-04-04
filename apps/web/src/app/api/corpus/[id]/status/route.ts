@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppCorpus } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
 
 // PATCH /api/corpus/:id/status — Agent status update (online/offline)
@@ -23,13 +25,14 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.corpus.update({
-      where: { id },
-      data: {
+    const [updated] = await db
+      .update(cppCorpus)
+      .set({
         agentOnline,
         agentLastSeen: new Date(),
-      },
-    });
+      })
+      .where(eq(cppCorpus.id, id))
+      .returning();
 
     return Response.json({
       id: updated.id,

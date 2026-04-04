@@ -1,8 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { WalletGate, useWallet } from "@/components/wallet-gate";
+import {
+  getRegistryContract,
+  getNameServiceContract,
+  getNameServiceReadOnly,
+  getSignerFromDynamic,
+  ensureHederaTestnet,
+} from "@/lib/contracts";
+import { BrowserProvider, ethers } from "ethers";
 
 const STEPS = [
   "Product",
@@ -28,6 +37,7 @@ export default function LaunchPage() {
 
 function LaunchForm() {
   const { address } = useWallet();
+  const { primaryWallet } = useDynamicContext();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -35,8 +45,6 @@ function LaunchForm() {
   const [form, setForm] = useState({
     productName: "",
     productDesc: "",
-    apiEndpoint: "",
-    apiKey: "",
     category: "marketing",
     tokenName: "",
     tokenSymbol: "",
@@ -50,69 +58,282 @@ function LaunchForm() {
     persona: "",
     targetAudience: "",
     tone: "professional",
+    creatorWallet: "",
+    investorWallet: "",
+    treasuryWallet: "",
     channels: ["X (Twitter)"] as string[],
+    agentName: "",
   });
+  const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
+  const [nameChecking, setNameChecking] = useState(false);
+  const [deployStep, setDeployStep] = useState<string | null>(null);
+  const [deployProgress, setDeployProgress] = useState(0); // 0-4 steps
+  const [genesisResult, setGenesisResult] = useState<{
+    corpusId: string;
+    apiKey: string;
+    onChainId: number;
+    agentName: string;
+  } | null>(null);
 
   const update = (key: string, value: string | number | string[]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const checkNameAvailability = useCallback(async (name: string) => {
+    if (!name || name.length < 3) {
+      setNameAvailable(null);
+      return;
+    }
+    setNameChecking(true);
+    try {
+      const ns = getNameServiceReadOnly();
+      const available = await ns.isNameAvailable(name);
+      setNameAvailable(available);
+    } catch {
+      // Contract not deployed yet — treat valid names as available
+      const valid = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) && !/--/.test(name);
+      setNameAvailable(valid);
+    } finally {
+      setNameChecking(false);
+    }
+  }, []);
 
   const canNext = () => {
     switch (step) {
       case 0:
         return form.productName && form.productDesc;
-      case 1:
-        return form.tokenName && form.tokenSymbol;
-      case 2:
-        return form.creatorShare + form.investorShare + form.treasuryShare === 100;
+      case 1: {
+        const sym = form.tokenSymbol.trim();
+        const supply = Number(form.totalSupply);
+        const price = Number(form.initialPrice);
+        return (
+          form.tokenName.trim().length > 0 &&
+          sym.length >= 2 && sym.length <= 8 &&
+          /^[A-Za-z][A-Za-z0-9]*$/.test(sym) &&
+          supply > 0 && supply <= 100_000_000 &&
+          price > 0 && price <= 1_000_000
+        );
+      }
+      case 2: {
+        const c = form.creatorWallet || address || "";
+        const i = form.investorWallet;
+        const t = form.treasuryWallet;
+        const allFilled = c && i && t;
+        const allUnique = new Set([c, i, t]).size === 3;
+        return form.creatorShare + form.investorShare + form.treasuryShare === 100
+          && allFilled && allUnique;
+      }
       case 3:
         return form.approvalThreshold && form.gtmBudget;
       case 4:
-        return form.persona && form.targetAudience && form.channels.length > 0;
+        return form.persona && form.targetAudience && form.channels.length > 0
+          && form.agentName.length >= 3 && nameAvailable === true;
       default:
         return true;
     }
   };
 
   const handleLaunch = async () => {
+    if (!primaryWallet) return;
     setSubmitting(true);
     setError(null);
-    try {
-      const res = await fetch("/api/corpus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.productName,
-          category: form.category.charAt(0).toUpperCase() + form.category.slice(1),
-          description: form.productDesc,
-          apiEndpoint: form.apiEndpoint,
-          totalSupply: Number(form.totalSupply),
-          creatorShare: form.creatorShare,
-          investorShare: form.investorShare,
-          treasuryShare: form.treasuryShare,
-          persona: form.persona,
-          targetAudience: form.targetAudience,
-          channels: form.channels,
-          approvalThreshold: Number(form.approvalThreshold),
-          gtmBudget: Number(form.gtmBudget),
-          creatorAddress: address,
-          walletAddress: address,
-        }),
-      });
+    setDeployStep(null);
+    setDeployProgress(0);
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to create corpus");
+    try {
+      // 1. Get signer from Dynamic wallet and verify network
+      setDeployStep("Connecting wallet...");
+      setDeployProgress(1);
+      const signer = await getSignerFromDynamic(primaryWallet);
+      setDeployStep("Verifying network...");
+      await ensureHederaTestnet(signer.provider as BrowserProvider);
+
+      // 2. Register Corpus on-chain
+      setDeployStep("Registering Corpus on-chain...");
+      setDeployProgress(2);
+      const registry = getRegistryContract(signer);
+
+      const creatorAddr = form.creatorWallet || address;
+      const patron = {
+        creatorShare: form.creatorShare * 100, // % → basis points
+        investorShare: form.investorShare * 100,
+        treasuryShare: form.treasuryShare * 100,
+        creatorAddr,
+        investorAddr: form.investorWallet,
+        treasuryAddr: form.treasuryWallet,
+      };
+      const kernel = {
+        approvalThreshold: BigInt(Math.round(Number(form.approvalThreshold) * 100)), // USD → cents
+        gtmBudget: BigInt(Math.round(Number(form.gtmBudget) * 100)),
+        minPatronPulse: BigInt(Math.floor(Number(form.totalSupply) / 1000)),
+      };
+      const pulse = {
+        hederaTokenAddr: "0x0000000000000000000000000000000000000000",
+        totalSupply: BigInt(form.totalSupply),
+        priceUsdCents: BigInt(Math.round(Number(form.initialPrice) * 100)),
+      };
+
+      const createTx = await registry.createCorpus(
+        form.productName,
+        form.category.charAt(0).toUpperCase() + form.category.slice(1),
+        patron,
+        kernel,
+        pulse,
+        form.tokenName,
+        form.tokenSymbol,
+        { value: ethers.parseEther("20") }, // HBAR for HTS token creation (~1 HBAR, excess refunded)
+      );
+      const receipt = await createTx.wait();
+
+      // Extract corpusId from CorpusCreated event
+      const createdEvent = receipt.logs
+        .map((log: { topics: readonly string[]; data: string }) => {
+          try { return registry.interface.parseLog(log); } catch { return null; }
+        })
+        .find((e: { name: string } | null) => e?.name === "CorpusCreated");
+
+      if (!createdEvent) throw new Error("CorpusCreated event not found in receipt");
+      const onChainId = Number(createdEvent.args[0]);
+
+      // Extract Pulse token address from PulseTokenCreated event
+      const pulseEvent = receipt.logs
+        .map((log: { topics: readonly string[]; data: string }) => {
+          try { return registry.interface.parseLog(log); } catch { return null; }
+        })
+        .find((e: { name: string } | null) => e?.name === "PulseTokenCreated");
+      const pulseTokenAddr = pulseEvent?.args?.[1] ?? null;
+
+      // 3. Register Prime Agent name on-chain (immutable)
+      setDeployStep("Registering agent identity...");
+      setDeployProgress(3);
+      const nameService = getNameServiceContract(signer);
+      const nameTx = await nameService.registerName(BigInt(onChainId), form.agentName);
+      await nameTx.wait();
+
+      // 4. Save to database
+      setDeployStep("Saving to database...");
+      setDeployProgress(4);
+      let dbData: { id: string; apiKeyOnce: string } | null = null;
+      try {
+        const res = await fetch("/api/corpus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.productName,
+            category: form.category.charAt(0).toUpperCase() + form.category.slice(1),
+            description: form.productDesc,
+            totalSupply: Number(form.totalSupply),
+            creatorShare: form.creatorShare,
+            investorShare: form.investorShare,
+            treasuryShare: form.treasuryShare,
+            persona: form.persona,
+            targetAudience: form.targetAudience,
+            channels: form.channels,
+            toneVoice: form.tone,
+            approvalThreshold: Number(form.approvalThreshold),
+            gtmBudget: Number(form.gtmBudget),
+            initialPrice: Number(form.initialPrice),
+            minPatronPulse: Math.floor(Number(form.totalSupply) / 1000),
+            creatorAddress: creatorAddr,
+            investorAddress: form.investorWallet,
+            treasuryAddress: form.treasuryWallet,
+            walletAddress: address,
+            onChainId,
+            agentName: form.agentName,
+            hederaTokenId: pulseTokenAddr,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Failed to save corpus");
+        }
+        dbData = await res.json();
+      } catch (dbErr) {
+        // On-chain succeeded but DB failed — show recovery info
+        const msg = dbErr instanceof Error ? dbErr.message : "Database save failed";
+        setError(
+          `On-chain registration succeeded (ID: ${onChainId}, Agent: ${form.agentName}.corpus) but database save failed: ${msg}. ` +
+          `Please contact support with your on-chain ID to recover.`
+        );
         return;
       }
 
-      const data = await res.json();
-      router.push(`/explore/${data.id}`);
-    } catch {
-      setError("Network error. Please try again.");
+      setGenesisResult({
+        corpusId: dbData!.id,
+        apiKey: dbData!.apiKeyOnce,
+        onChainId,
+        agentName: form.agentName,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Transaction failed";
+      setError(message);
     } finally {
       setSubmitting(false);
+      setDeployStep(null);
+      setDeployProgress(0);
     }
   };
+
+  if (genesisResult) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <div className="text-xs text-green-400 mb-2">[GENESIS COMPLETE]</div>
+          <h1 className="text-2xl font-bold text-accent">Corpus Launched Successfully</h1>
+        </div>
+
+        <div className="bg-surface border border-green-900 p-8 mb-6 space-y-6">
+          <div className="flex items-center gap-3 text-green-400">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            <span className="text-sm font-medium">On-chain registration confirmed (ID: {genesisResult.onChainId})</span>
+          </div>
+
+          <div>
+            <div className="text-xs text-muted mb-2">Agent Identity</div>
+            <div className="text-foreground font-mono text-sm">{genesisResult.agentName}.corpus</div>
+          </div>
+
+          <div>
+            <div className="text-xs text-red-400 mb-2">API Key (shown only once — save it now)</div>
+            <div className="bg-background border border-border p-3 font-mono text-xs text-accent break-all select-all">
+              {genesisResult.apiKey}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs text-muted mb-4">Run your Prime Agent</div>
+            <div className="bg-background border border-border p-4 text-xs text-foreground space-y-1 overflow-x-auto">
+              <div className="text-muted"># 1. Install the agent CLI</div>
+              <div>pip install corpus-agent</div>
+              <div className="text-muted mt-3"># 2. Set your API key</div>
+              <div>export CORPUS_API_KEY=&quot;{genesisResult.apiKey}&quot;</div>
+              <div className="text-muted mt-3"># 3. Start your Prime Agent</div>
+              <div>corpus-agent start --corpus-id {genesisResult.onChainId}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(genesisResult.apiKey);
+            }}
+            className="px-6 py-2.5 text-sm border border-border text-foreground hover:bg-surface-hover transition-colors"
+          >
+            Copy API Key
+          </button>
+          <button
+            onClick={() => router.push(`/explore/${genesisResult.corpusId}`)}
+            className="px-8 py-2.5 text-sm bg-accent text-background font-medium hover:bg-foreground transition-colors"
+          >
+            View Corpus &rarr;
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12">
@@ -146,12 +367,10 @@ function LaunchForm() {
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Product Input</h2>
             <p className="text-sm text-muted mb-6">
-              Tell us about the product your agent will market.
+              Describe your product. Your Prime Agent will handle GTM and service delivery.
             </p>
             <Field label="Product Name" value={form.productName} onChange={(v) => update("productName", v)} placeholder="e.g. ImageGen Pro" />
-            <Field label="Description" value={form.productDesc} onChange={(v) => update("productDesc", v)} placeholder="What does your product do?" multiline />
-            <Field label="API Endpoint" value={form.apiEndpoint} onChange={(v) => update("apiEndpoint", v)} placeholder="https://api.example.com/v1" />
-            <Field label="API Key" value={form.apiKey} onChange={(v) => update("apiKey", v)} placeholder="sk-..." type="password" />
+            <Field label="Description" value={form.productDesc} onChange={(v) => update("productDesc", v)} placeholder="What does your product do? Who is it for?" multiline />
             <div>
               <label className="block text-xs text-muted mb-2">Category</label>
               <select
@@ -175,9 +394,18 @@ function LaunchForm() {
               Configure your Corpus&apos;s ownership token on Hedera.
             </p>
             <Field label="Token Name" value={form.tokenName} onChange={(v) => update("tokenName", v)} placeholder="e.g. ImageGen Pulse" />
-            <Field label="Token Symbol" value={form.tokenSymbol} onChange={(v) => update("tokenSymbol", v)} placeholder="e.g. IMGS" />
-            <Field label="Total Supply" value={form.totalSupply} onChange={(v) => update("totalSupply", v)} type="number" />
-            <Field label="Initial Price (USDC)" value={form.initialPrice} onChange={(v) => update("initialPrice", v)} type="number" />
+            <div>
+              <Field label="Token Symbol" value={form.tokenSymbol} onChange={(v) => update("tokenSymbol", v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))} placeholder="e.g. IMGS" />
+              <p className="text-xs text-muted mt-1">2-8 characters, letters and numbers only</p>
+            </div>
+            <div>
+              <Field label="Total Supply" value={form.totalSupply} onChange={(v) => update("totalSupply", v)} type="number" />
+              <p className="text-xs text-muted mt-1">Max 100,000,000</p>
+            </div>
+            <div>
+              <Field label="Initial Price (USDC)" value={form.initialPrice} onChange={(v) => update("initialPrice", v)} type="number" />
+              <p className="text-xs text-muted mt-1">Price per Pulse token in USDC</p>
+            </div>
           </div>
         )}
 
@@ -187,32 +415,51 @@ function LaunchForm() {
             <p className="text-sm text-muted mb-6">
               Set the ownership distribution for your Corpus.
             </p>
-            <SliderField label="Creator" value={form.creatorShare} onChange={(v) => {
-              const diff = v - form.creatorShare;
-              const newInvestor = Math.max(0, form.investorShare - diff);
-              update("creatorShare", v);
-              update("investorShare", newInvestor);
-              update("treasuryShare", 100 - v - newInvestor);
-            }} />
-            <SliderField label="Investors" value={form.investorShare} onChange={(v) => {
-              const diff = v - form.investorShare;
-              const newTreasury = Math.max(0, form.treasuryShare - diff);
-              update("investorShare", v);
-              update("treasuryShare", newTreasury);
-              update("creatorShare", 100 - v - newTreasury);
-            }} />
-            <SliderField label="Treasury" value={form.treasuryShare} onChange={(v) => {
-              const diff = v - form.treasuryShare;
-              const newCreator = Math.max(0, form.creatorShare - diff);
-              update("treasuryShare", v);
-              update("creatorShare", newCreator);
-              update("investorShare", 100 - v - newCreator);
-            }} />
-            <div className="text-xs text-muted pt-2">
-              Total: {form.creatorShare + form.investorShare + form.treasuryShare}%
-              {form.creatorShare + form.investorShare + form.treasuryShare !== 100 && (
-                <span className="text-red-400 ml-2">Must equal 100%</span>
-              )}
+            <div className="space-y-2">
+              <SliderField label="Creator" value={form.creatorShare} onChange={(v) => {
+                setForm((prev) => {
+                  const diff = v - prev.creatorShare;
+                  const newInvestor = Math.max(0, prev.investorShare - diff);
+                  return { ...prev, creatorShare: v, investorShare: newInvestor, treasuryShare: 100 - v - newInvestor };
+                });
+              }} />
+              <Field label="Creator Wallet" value={form.creatorWallet || address || ""} onChange={(v) => update("creatorWallet", v)} placeholder="Auto-filled from connected wallet" />
+            </div>
+            <div className="space-y-2">
+              <SliderField label="Investors" value={form.investorShare} onChange={(v) => {
+                setForm((prev) => {
+                  const diff = v - prev.investorShare;
+                  const newTreasury = Math.max(0, prev.treasuryShare - diff);
+                  return { ...prev, investorShare: v, treasuryShare: newTreasury, creatorShare: 100 - v - newTreasury };
+                });
+              }} />
+              <Field label="Investor Wallet" value={form.investorWallet} onChange={(v) => update("investorWallet", v)} placeholder="0x... or 0.0.xxxxx" />
+            </div>
+            <div className="space-y-2">
+              <SliderField label="Treasury" value={form.treasuryShare} onChange={(v) => {
+                setForm((prev) => {
+                  const diff = v - prev.treasuryShare;
+                  const newCreator = Math.max(0, prev.creatorShare - diff);
+                  return { ...prev, treasuryShare: v, creatorShare: newCreator, investorShare: 100 - v - newCreator };
+                });
+              }} />
+              <Field label="Treasury Wallet" value={form.treasuryWallet} onChange={(v) => update("treasuryWallet", v)} placeholder="0x... or 0.0.xxxxx" />
+            </div>
+            <div className="text-xs text-muted pt-2 space-y-1">
+              <div>
+                Total: {form.creatorShare + form.investorShare + form.treasuryShare}%
+                {form.creatorShare + form.investorShare + form.treasuryShare !== 100 && (
+                  <span className="text-red-400 ml-2">Must equal 100%</span>
+                )}
+              </div>
+              {(() => {
+                const c = form.creatorWallet || address || "";
+                const i = form.investorWallet;
+                const t = form.treasuryWallet;
+                return c && i && t && new Set([c, i, t]).size < 3 ? (
+                  <div className="text-red-400">Wallet addresses must be unique</div>
+                ) : null;
+              })()}
             </div>
           </div>
         )}
@@ -234,6 +481,36 @@ function LaunchForm() {
             <p className="text-sm text-muted mb-6">
               Configure your AI agent&apos;s personality and targets.
             </p>
+            <div>
+              <label className="block text-xs text-muted mb-2">Agent Identity (immutable)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={form.agentName}
+                  onChange={(e) => {
+                    const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                    update("agentName", v);
+                    checkNameAvailability(v);
+                  }}
+                  placeholder="e.g. marketbot"
+                  className="flex-1 bg-background border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-accent"
+                />
+                <span className="text-sm text-muted">.corpus</span>
+              </div>
+              <div className="mt-1.5 text-xs">
+                {nameChecking && <span className="text-muted">Checking...</span>}
+                {!nameChecking && nameAvailable === true && form.agentName.length >= 3 && (
+                  <span className="text-green-400">{form.agentName}.corpus is available</span>
+                )}
+                {!nameChecking && nameAvailable === false && (
+                  <span className="text-red-400">{form.agentName}.corpus is taken</span>
+                )}
+                {!nameChecking && nameAvailable === null && form.agentName.length > 0 && form.agentName.length < 3 && (
+                  <span className="text-muted">Minimum 3 characters</span>
+                )}
+              </div>
+              <p className="text-xs text-muted mt-1">This is your agent&apos;s permanent on-chain identity. It cannot be changed after registration.</p>
+            </div>
             <Field label="Persona" value={form.persona} onChange={(v) => update("persona", v)} placeholder="e.g. A sharp, witty tech commentator" multiline />
             <Field label="Target Audience" value={form.targetAudience} onChange={(v) => update("targetAudience", v)} placeholder="e.g. Indie developers building SaaS products" />
             <div>
@@ -287,7 +564,11 @@ function LaunchForm() {
               <ReviewRow label="Token" value={`${form.tokenName} (${form.tokenSymbol})`} />
               <ReviewRow label="Supply" value={Number(form.totalSupply).toLocaleString()} />
               <ReviewRow label="Price" value={`$${form.initialPrice}`} />
+              <ReviewRow label="Agent Identity" value={`${form.agentName}.corpus`} />
               <ReviewRow label="Distribution" value={`Creator ${form.creatorShare}% / Investors ${form.investorShare}% / Treasury ${form.treasuryShare}%`} />
+              <ReviewRow label="Creator Wallet" value={form.creatorWallet || address || ""} />
+              <ReviewRow label="Investor Wallet" value={form.investorWallet} />
+              <ReviewRow label="Treasury Wallet" value={form.treasuryWallet} />
               <ReviewRow label="Approval" value={`> $${form.approvalThreshold}`} />
               <ReviewRow label="Budget" value={`$${form.gtmBudget}/mo`} />
               <ReviewRow label="Persona" value={form.persona} />
@@ -297,6 +578,34 @@ function LaunchForm() {
           </div>
         )}
       </div>
+
+      {submitting && (
+        <div className="mb-6 border border-accent/30 bg-surface p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <svg className="animate-spin h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-sm text-accent">{deployStep || "Preparing..."}</span>
+          </div>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4].map((s) => (
+              <div
+                key={s}
+                className={`h-1 flex-1 transition-colors duration-300 ${
+                  s <= deployProgress ? "bg-accent" : "bg-border"
+                }`}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between mt-1 text-xs text-muted">
+            <span>Wallet</span>
+            <span>Registry</span>
+            <span>Name</span>
+            <span>Database</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 border border-red-900 bg-red-950/30 px-4 py-3 text-sm text-red-400">
@@ -327,7 +636,7 @@ function LaunchForm() {
             disabled={submitting}
             className="px-8 py-2.5 text-sm bg-accent text-background font-medium hover:bg-foreground transition-colors disabled:opacity-50"
           >
-            {submitting ? "Deploying..." : "Launch Corpus"}
+            {submitting ? (deployStep || "Deploying...") : "Launch Corpus"}
           </button>
         )}
       </div>
@@ -389,7 +698,20 @@ function SliderField({
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className="text-xs text-muted">{label}</label>
-        <span className="text-sm text-accent font-bold">{value}%</span>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={value}
+            onChange={(e) => {
+              const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+              onChange(v);
+            }}
+            className="w-14 bg-background border border-border px-2 py-0.5 text-sm text-accent font-bold text-right focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <span className="text-sm text-accent font-bold">%</span>
+        </div>
       </div>
       <input
         type="range"

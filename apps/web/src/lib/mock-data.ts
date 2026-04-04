@@ -15,7 +15,6 @@ export interface CorpusItem {
   creatorShare: number;
   investorShare: number;
   treasuryShare: number;
-  apiEndpoint: string;
   createdAt: string;
   persona: string;
   targetAudience: string;
@@ -56,7 +55,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 60,
     investorShare: 25,
     treasuryShare: 15,
-    apiEndpoint: "https://api.marketbot.io/v1",
     createdAt: "2025-02-14",
     persona: "Sharp, data-driven growth marketer with a knack for viral content",
     targetAudience: "Indie SaaS developers and small startup teams",
@@ -79,7 +77,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 70,
     investorShare: 20,
     treasuryShare: 10,
-    apiEndpoint: "https://api.codeforge.dev/v2",
     createdAt: "2025-03-01",
     persona: "Senior engineer who writes clean, well-tested TypeScript",
     targetAudience: "Backend developers building APIs and microservices",
@@ -102,7 +99,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 50,
     investorShare: 35,
     treasuryShare: 15,
-    apiEndpoint: "https://api.insightminer.ai/v1",
     createdAt: "2025-01-20",
     persona: "Meticulous research analyst with academic rigor",
     targetAudience: "Product managers and strategy teams at mid-size companies",
@@ -125,7 +121,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 65,
     investorShare: 20,
     treasuryShare: 15,
-    apiEndpoint: "https://api.pixelsmith.design/v1",
     createdAt: "2025-03-10",
     persona: "Design-obsessed craftsperson who sweats the details",
     targetAudience: "Frontend developers and design engineers",
@@ -148,7 +143,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 45,
     investorShare: 40,
     treasuryShare: 15,
-    apiEndpoint: "https://api.growthengine.io/v1",
     createdAt: "2025-01-05",
     persona: "Aggressive growth hacker who optimizes everything",
     targetAudience: "B2B SaaS companies with $1M+ ARR",
@@ -171,7 +165,6 @@ export const CORPUS_DATA: CorpusItem[] = [
     creatorShare: 75,
     investorShare: 15,
     treasuryShare: 10,
-    apiEndpoint: "https://api.dataweaver.io/v1",
     createdAt: "2025-03-18",
     persona: "Methodical data engineer focused on reliability",
     targetAudience: "Data teams at growing startups",

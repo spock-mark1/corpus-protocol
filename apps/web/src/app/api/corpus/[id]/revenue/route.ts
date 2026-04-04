@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { cppRevenues } from "@/db/schema";
 import { verifyAgentApiKey } from "@/lib/auth";
 
 // POST /api/corpus/:id/revenue — Report revenue (from Local Agent)
@@ -47,15 +48,16 @@ export async function POST(
       );
     }
 
-    const revenue = await prisma.revenue.create({
-      data: {
+    const [revenue] = await db
+      .insert(cppRevenues)
+      .values({
         corpusId: id,
-        amount,
+        amount: String(amount),
         currency: currency ?? "USDC",
         source,
         txHash,
-      },
-    });
+      })
+      .returning();
 
     return Response.json(revenue, { status: 201 });
   } catch {
