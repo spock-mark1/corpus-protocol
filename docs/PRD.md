@@ -675,6 +675,9 @@ HEDERA_NETWORK=testnet
 # World
 WORLD_APP_ID=
 WORLD_ACTION_ID=
+
+# Dynamic (Wallet Connection)
+NEXT_PUBLIC_DYNAMIC_ENV_ID=
 ```
 
 #### packages/prime-agent (.env)
