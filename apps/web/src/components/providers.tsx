@@ -11,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const origWarn = console.warn;
     const suppress = (orig: typeof console.error) => (...args: unknown[]) => {
       const msg = typeof args[0] === "string" ? args[0] : "";
-      if (msg.includes("DialogContent") || msg.includes("DialogTitle") || msg.includes("aria-describedby")) return;
+      if (msg.includes("DialogContent") || msg.includes("DialogTitle") || msg.includes("aria-describedby") || msg.includes("[DynamicSDK]")) return;
       orig(...args);
     };
     console.error = suppress(origError);

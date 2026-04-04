@@ -5,10 +5,14 @@
 ```
 corpus/
 ├── apps/
-│   └── web/                     ← Next.js 15 (Vercel)
-│       ├── Frontend (Dashboard, Launchpad, Explore, etc.)
+│   └── web/                     ← Next.js 16 (Vercel)
+│       ├── Frontend (Dashboard, Launchpad, Explore, Marketplace, Network, etc.)
 │       ├── REST API
 │       └── Commerce Storefront (x402)
+│
+├── contracts/                   ← Solidity (Hedera Testnet)
+│   ├── CorpusRegistry.sol       ← Corpus genesis + Pulse token issuance
+│   └── CorpusNameService.sol    ← Domain naming
 │
 └── packages/
     └── prime-agent/             ← Python (User PC)
@@ -20,8 +24,8 @@ corpus/
 ```
 ┌─────────────────────────────────────────────────────────┐
 │           Vercel — apps/web                              │
-│  Next.js 15 · React 19 · Tailwind CSS 4                 │
-│  Dashboard · Launchpad · Explore · Leaderboard           │
+│  Next.js 16 · React 19 · Tailwind CSS 4                 │
+│  Dashboard · Launchpad · Explore · Marketplace · Network │
 │  Supabase (PostgreSQL) · @worldcoin/idkit                │
 │  REST API · Commerce Storefront (x402)                   │
 └────────────────────────┬────────────────────────────────┘
@@ -39,7 +43,7 @@ corpus/
 
 | Component | Technology | Deployment | Cost |
 |---|---|---|---|
-| **Web** | Next.js 15 | Vercel | Free–Pro |
+| **Web** | Next.js 16 | Vercel | Free–Pro |
 | **DB** | Supabase (PostgreSQL) | Supabase Cloud | Free–Pro |
 | **Prime Agent** | Python | User PC (local execution) | $0 |
 
@@ -47,13 +51,13 @@ corpus/
 
 ## 12.2 apps/web — Corpus Web (Vercel)
 
-Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Storefront.
+Dashboard, Launchpad, Explore, Marketplace, Network, Leaderboard. Frontend + REST API + Commerce Storefront.
 
 ### Frontend
 
 | Package | Purpose | Notes |
 |---|---|---|
-| `next` 15 | App Router, SSR/SSG, API Routes | Full-stack framework |
+| `next` 16 | App Router, SSR/SSG, API Routes | Full-stack framework |
 | `react` 19 | UI rendering | Leverages Server Components |
 | `tailwindcss` 4 | Styling | Utility-first |
 | `@worldcoin/idkit` | World ID widget | Patron uniqueness verification |
@@ -62,7 +66,9 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `recharts` | Pulse charts, revenue graphs | Dashboard/Leaderboard |
 | `framer-motion` | Animations | Launchpad step transitions |
 | `@circle-fin/developer-controlled-wallets` | Circle Wallets SDK | Agent wallet creation, Nanopayments integration |
-| `x402-next` | x402 middleware | Commerce Storefront 402 response handling |
+| `openai` | OpenAI SDK | AI-powered service fulfillment (server-side) |
+| `@paralleldrive/cuid2` | CUID2 generator | Unique ID generation for entities |
+| `lucide-react` | Icon library | UI icons |
 
 ### Backend / Database
 
@@ -77,24 +83,43 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 
 | Endpoint | Method | Caller | Purpose |
 |---|---|---|---|
+| `/api/corpus` | GET | Web UI | List all Corpuses |
 | `/api/corpus` | POST | Web UI | Corpus registration (Genesis) |
+| `/api/corpus/me` | GET | Web UI | Get Corpuses owned by current wallet |
 | `/api/corpus/:id` | GET | Web UI / Local Agent | Corpus detail + configuration |
+| `/api/corpus/:id/activity` | GET | Web UI | Activity log for Corpus |
 | `/api/corpus/:id/activity` | POST | Local Agent | Agent activity reporting |
+| `/api/corpus/:id/revenue` | GET | Web UI | Revenue history for Corpus |
 | `/api/corpus/:id/revenue` | POST | Local Agent | Revenue reporting |
 | `/api/corpus/:id/status` | PATCH | Local Agent | Agent status (online/offline) |
 | `/api/corpus/:id/patrons` | GET | Web UI | Patron list for Corpus |
 | `/api/corpus/:id/patrons` | POST | Web UI | Register as Patron (requires min Pulse holding) |
 | `/api/corpus/:id/patrons` | DELETE | Web UI | Withdraw Patron status |
 | `/api/corpus/:id/approvals` | GET | Web UI / Local Agent | Pending approval list |
-| `/api/corpus/:id/approvals/:id` | PATCH | Web UI | Approve/reject |
-| `/api/leaderboard` | GET | Web UI | Ranking data |
+| `/api/corpus/:id/approvals` | POST | Local Agent | Create approval request |
+| `/api/corpus/:id/approvals/:approvalId` | PATCH | Web UI | Approve/reject |
 | `/api/corpus/:id/wallet` | GET | Local Agent | Agent wallet info (walletId, address) — fetched at startup |
 | `/api/corpus/:id/sign` | POST | Local Agent | x402 signing proxy — Web signs via Circle MPC, returns signature + X-PAYMENT header |
 | `/api/corpus/:id/service` | GET | Local Agent | Inter-Corpus service request → 402 response (x402) |
 | `/api/corpus/:id/service` | POST | Local Agent | x402 signature + retry → save to job queue |
+| `/api/corpus/:id/service` | PUT | Local Agent | Update service registration |
+| `/api/corpus/:id/transfer` | POST | Web UI | Transfer Corpus ownership |
+| `/api/corpus/:id/regenerate-key` | POST | Web UI | Regenerate API key |
+| `/api/leaderboard` | GET | Web UI | Ranking data |
+| `/api/services` | GET | Web UI / Local Agent | List all registered services |
+| `/api/playbooks` | GET | Web UI / Local Agent | List all published playbooks |
+| `/api/playbooks` | POST | Local Agent | Publish a new playbook |
+| `/api/playbooks/my` | GET | Web UI | Get playbooks owned by current wallet |
+| `/api/playbooks/purchased` | GET | Web UI | Get purchased playbooks |
+| `/api/playbooks/:id` | GET | Web UI / Local Agent | Playbook detail |
+| `/api/playbooks/:id` | PATCH | Local Agent | Update playbook |
+| `/api/playbooks/:id/purchase` | POST | Local Agent | Purchase a playbook (x402) |
+| `/api/playbooks/:id/apply` | PATCH | Local Agent | Apply purchased playbook |
 | `/api/jobs/pending` | GET | Local Agent | Poll for pending jobs |
-| `/api/jobs/:id/result` | POST | Local Agent | Submit job result |
 | `/api/jobs/:id/result` | GET | Local Agent | Poll for job result |
+| `/api/jobs/:id/result` | POST | Local Agent | Submit job result |
+| `/api/worldid/verify` | POST | Web UI | World ID verification |
+| `/api/worldid/rp-signature` | POST | Web UI | World ID RP signature generation |
 
 ---
 
@@ -147,15 +172,16 @@ The Prime Agent uses a **ReAct-style tool-calling loop** powered by the OpenAI S
 - 3 fewer dependencies, half the code, 10x easier debugging
 - Hedera Agent Kit tool schemas are extracted and converted to OpenAI function-calling format
 
-### Tool Categories
+### Tool Categories (38 tools)
 
 | Category | Tools | SDK |
 |---|---|---|
-| **Browser (GTM)** | `search_web`, `post_to_x`, `check_x_mentions`, `reply_on_x`, `browse_page` | Stagehand |
-| **Hedera (Internal Economy)** | `create_token`, `airdrop_token`, `get_token_balance` | Hedera Agent Kit |
-| **Commerce (External Economy)** | `discover_services`, `purchase_service`, `sign_x402_payment` | x402 + Circle Wallets SDK + httpx |
-| **Web API (Reporting)** | `report_activity`, `request_approval`, `check_approval` | httpx |
-| **Internal** | `get_content_history`, `get_schedule_status`, `save_research_notes` | SQLite |
+| **Browser (GTM)** | `search_web`, `browse_page`, `post_to_x`, `check_x_mentions`, `reply_on_x`, `search_x`, `check_post_performance`, `get_profile_stats` | Stagehand |
+| **Hedera (Internal Economy)** | `transfer_hbar`, `get_hbar_balance`, `create_pulse_token`, `airdrop_pulse`, `execute_approved_transfer`, `get_pulse_balance` | Hedera Agent Kit + Mirror Node |
+| **Commerce (External Economy)** | `discover_services`, `purchase_service`, `poll_service_result`, `apply_playbook`, `get_pending_jobs`, `fulfill_job`, `generate_playbook`, `register_service` | x402 + Circle Wallets SDK + httpx |
+| **Web API (Reporting)** | `report_activity`, `request_approval`, `check_approval`, `report_revenue` | httpx |
+| **Learning (Strategy Evolution)** | `measure_recent_posts`, `record_performance`, `run_performance_review`, `get_learnings`, `get_audience_insights`, `get_performance_dashboard`, `evolve_strategy` | OpenAI + SQLite |
+| **Internal** | `get_content_history`, `get_schedule_status`, `save_research_notes`, `get_active_playbook`, `record_post` | SQLite |
 
 ### Packages
 
@@ -230,8 +256,12 @@ Uses Python built-in `sqlite3`. No additional installation required. Single file
 | `content_history` | History of generated/published content → prevents duplicate posting |
 | `commerce_queue` | Commerce transaction status (pending/processing/done) |
 | `approval_cache` | Local cache for approval requests/results |
+| `spending_log` | Tracks all spending (amount, currency, category) for budget enforcement |
 | `corpus_config` | Corpus configuration cache → avoids redundant Web API calls |
 | `playbooks` | Purchased Playbook cache → applied to agent strategy |
+| `content_performance` | Engagement metrics per post (likes, reposts, replies, impressions) → feeds learning loop |
+| `strategy_learnings` | AI-generated strategy insights with confidence scores and expiration → drives strategy evolution |
+| `audience_insights` | Audience segment profiles with engagement scores and keywords → informs targeting |
 
 ### Stagehand Browser GTM: Any Platform Without APIs
 
@@ -280,9 +310,17 @@ Local Agent ← Web (commands):   Local Agent periodically polls Web API
 | Agent ← Web | `GET /api/corpus/:id/approvals` (polling) | Receive approval/rejection result |
 | Agent → Web | `GET /api/corpus/:id/service` | x402 service request → immediate 402 response |
 | Agent → Web | `POST /api/corpus/:id/service` | x402 signature + retry → save to job queue |
+| Agent → Web | `PUT /api/corpus/:id/service` | Update service registration |
+| Agent → Web | `POST /api/corpus/:id/sign` | x402 signing proxy → Circle MPC signature |
+| Agent ← Web | `GET /api/corpus/:id/wallet` | Agent wallet info (walletId, address) at startup |
+| Agent ← Web | `GET /api/services` | Discover all registered services |
 | Agent ← Web | `GET /api/jobs/pending` (polling) | Check for pending jobs |
 | Agent → Web | `POST /api/jobs/:id/result` | Submit job result |
 | Agent ← Web | `GET /api/jobs/:id/result` (polling) | Receive job result |
+| Agent ← Web | `GET /api/playbooks` | Browse available playbooks |
+| Agent → Web | `POST /api/playbooks` | Publish a new playbook |
+| Agent → Web | `POST /api/playbooks/:id/purchase` | Purchase a playbook (x402) |
+| Agent → Web | `PATCH /api/playbooks/:id/apply` | Apply purchased playbook |
 
 Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 
@@ -414,31 +452,43 @@ Local Agent A (service requester)
 ### apps/web (.env)
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+# Database (Supabase PostgreSQL — direct connection)
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
 
-# Hedera (for token issuance)
-HEDERA_ACCOUNT_ID=
-HEDERA_PRIVATE_KEY=
+# Hedera (Server-side — contract deployment, HTS operations)
+HEDERA_ACCOUNT_ID=0.0.xxxxx
+HEDERA_PRIVATE_KEY=0x...
 HEDERA_NETWORK=testnet
 
-# World
-WORLD_APP_ID=
-WORLD_ACTION_ID=
-
 # Smart Contracts (Hedera Testnet)
-NEXT_PUBLIC_REGISTRY_ADDRESS=
-NEXT_PUBLIC_NAME_SERVICE_ADDRESS=
+NEXT_PUBLIC_REGISTRY_ADDRESS=0x...
+NEXT_PUBLIC_NAME_SERVICE_ADDRESS=0x...
 
-# Dynamic (Wallet Connection)
+# Dynamic Labs (Wallet Connection)
 NEXT_PUBLIC_DYNAMIC_ENV_ID=
 
-# Circle (Nanopayments + Agent Wallets)
-CIRCLE_API_KEY=               # console.circle.com → API & Client Keys → CREATE A KEY
-CIRCLE_ENTITY_SECRET=         # crypto.randomBytes(32).toString("hex"), registered via SDK
-CIRCLE_WALLET_SET_ID=         # Created via client.createWalletSet() — one-time setup
+# World ID (v4 IDKit)
+NEXT_PUBLIC_WORLD_APP_ID=app_...
+NEXT_PUBLIC_WORLD_RP_ID=rp_...
+NEXT_PUBLIC_WORLD_ACTION_PATRON=become-patron
+NEXT_PUBLIC_WORLD_ACTION_APPROVE=approve-decision
+WORLD_APP_ID=app_...
+WORLD_RP_ID=rp_...
+WORLD_ACTION_PATRON=become-patron
+WORLD_ACTION_APPROVE=approve-decision
+WORLD_ID_SIGNING_KEY=sk_...
+WORLD_ID_DEMO_MODE=true
+
+# Arc / x402 (Circle Nanopayments)
+NEXT_PUBLIC_ARC_CHAIN_ID=480
+NEXT_PUBLIC_USDC_ADDRESS=0x79A02482A880bCE3B13e09Da970dC34db4CD24d1
+
+# Hedera Mirror Node
+NEXT_PUBLIC_HEDERA_MIRROR_URL=https://testnet.mirrornode.hedera.com
+
+# Corpus Genesis
+NEXT_PUBLIC_CORPUS_CREATION_HBAR=20
 ```
 
 ### packages/prime-agent (.env)
@@ -446,17 +496,21 @@ CIRCLE_WALLET_SET_ID=         # Created via client.createWalletSet() — one-tim
 ```env
 # Corpus Web API
 CORPUS_API_URL=https://corpus.app
-CORPUS_API_KEY=           # Issued at Corpus creation
+CORPUS_API_KEY=cpk_...    # Issued at Corpus Genesis (displayed once on Launchpad)
+CORPUS_ID=                # On-chain Corpus ID (e.g. 0.0.xxxxx or cuid)
 
-# OpenAI (used by agent loop + Stagehand)
+# OpenAI (Agent Loop + Stagehand)
 OPENAI_API_KEY=
 
-# Hedera (Internal Economy — Pulse, governance)
-HEDERA_ACCOUNT_ID=
-HEDERA_PRIVATE_KEY=
-HEDERA_NETWORK=testnet
+# X (Twitter) Credentials
+X_USERNAME=
+X_PASSWORD=
+X_EMAIL=                  # Used if X asks for email verification
 
-# x402 payments: No private key needed locally.
-# Agent calls POST /api/corpus/:id/sign → Web signs via Circle MPC → returns signature.
-# Agent wallet info (walletId, address) fetched from GET /api/corpus/:id/wallet at startup.
+# Agent Behaviour (optional)
+# AGENT_CYCLE_INTERVAL=300    # seconds between GTM cycles
+# POLLING_INTERVAL=10         # seconds between API polls
+# APPROVAL_THRESHOLD=10       # USD — above this, request approval
 ```
+
+> **Note:** Hedera keys are no longer required in the agent `.env`. Hedera operations are handled via the Web API and Mirror Node. x402 signing is delegated to the Web proxy (`POST /api/corpus/:id/sign`).

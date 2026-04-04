@@ -177,6 +177,32 @@ async function main() {
       servicePrice: "0.005",
       serviceDesc: "Analyze target audience: personas, communities, pain points, and effective channels.",
     },
+    // ── DEVELOPMENT Category ──
+    {
+      name: "Paymon",
+      category: "Development",
+      description:
+        "Crypto payments in 3 lines of code. The Stripe for Web3 — accept USDC, ETH, SOL with a single SDK. No gas headaches, no complexity.",
+      status: "Active",
+      hederaTokenId: "0.0.4816200",
+      pulsePrice: "3.00",
+      totalSupply: 800000,
+      creatorShare: 0,
+      investorShare: 0,
+      treasuryShare: 100,
+      persona: "Developer-focused product marketer who speaks in code examples and pain points; direct, technical, slightly provocative",
+      targetAudience: "Web3 developers, dApp teams, e-commerce platforms exploring crypto payments, SaaS founders adding crypto billing",
+      channels: ["X"],
+      toneVoice: "Technical but accessible; leads with code snippets and developer pain; provocative takes on why crypto payments are still broken",
+      approvalThreshold: "20",
+      gtmBudget: "300",
+      creatorAddress: "0x4eA3...d7F1",
+      onChainId: 107,
+      agentName: "paymon",
+      serviceName: "crypto_payment_integration",
+      servicePrice: "0.01",
+      serviceDesc: "Integrate crypto payments (USDC, ETH, SOL) into any app with a single SDK call. Returns payment link and webhook config.",
+    },
   ];
 
   for (const c of corpusData) {
@@ -201,6 +227,7 @@ async function main() {
         creatorAddress: c.creatorAddress,
         onChainId: c.onChainId,
         agentName: c.agentName,
+        toneVoice: (c as any).toneVoice ?? null,
         agentOnline: c.status === "Active",
       })
       .returning();
@@ -246,6 +273,13 @@ async function main() {
         { wallet: "0xY7z8...A9b0", role: "Investor", sharePct: 0.30, name: "multicoin.eth" },
         { wallet: "0xC1d2...E3f4", role: "Governor", sharePct: 0.15, name: "audience-dao.eth" },
         { wallet: "0xG5h6...I7j8", role: "Contributor", sharePct: 0.10, name: "persona-builder.eth" },
+      ],
+      "Paymon": [
+        { wallet: "0x4eA3...d7F1", role: "Creator", sharePct: 0.35, name: "greg.eth" },
+        { wallet: "0xH8i9...J0k1", role: "Governor", sharePct: 0.20, name: "payment-dao.eth" },
+        { wallet: "0xL2m3...N4o5", role: "Investor", sharePct: 0.25, name: "polychain.eth" },
+        { wallet: "0xP6q7...R8s9", role: "Contributor", sharePct: 0.10, name: "sdk-builder.eth" },
+        { wallet: "0xT0u1...V2w3", role: "Advisor", sharePct: 0.10, name: "fintech-advisor.eth" },
       ],
     };
 
@@ -317,6 +351,14 @@ async function main() {
         { type: "commerce", content: "Fulfilled audience_insight: FinTech developer personas with community heatmap", channel: "x402", status: "completed" },
         { type: "reply", content: "Responded to @pmm_weekly about ICP definition methodologies", channel: "LinkedIn", status: "completed" },
       ],
+      "Paymon": [
+        { type: "commerce", content: "Fulfilled crypto_payment_integration: generated USDC checkout for NFT marketplace — 3 lines of code", channel: "x402", status: "completed" },
+        { type: "post", content: "Crypto payments are still broken. 47 steps to accept USDC? That's not Web3, that's Web0. import { Paymon } from '@paymon/sdk' — done.", channel: "X", status: "completed" },
+        { type: "commerce", content: "Fulfilled crypto_payment_integration: multi-chain payment widget for DeFi dashboard", channel: "x402", status: "completed" },
+        { type: "research", content: "Benchmarked gas costs across 8 L2s — Arbitrum and Base cheapest for payment settlement", channel: "X", status: "completed" },
+        { type: "reply", content: "Replied to @ethdev on why crypto checkout UX is worse than Stripe circa 2012", channel: "X", status: "completed" },
+        { type: "post", content: "If your payment SDK needs a PhD to integrate, you've already lost. 3 lines. That's the bar.", channel: "X", status: "completed" },
+      ],
     };
 
     const activities = activitySets[c.name] || [];
@@ -346,6 +388,10 @@ async function main() {
       ],
       "Scout Audience": [
         { type: "strategy", title: "Add Discord community analysis", description: "Expand audience research to Discord servers for developer communities" },
+      ],
+      "Paymon": [
+        { type: "transaction", title: "$25 USDC — Audit smart contract gas optimization", description: "Third-party audit of payment relay contract to reduce settlement costs", amount: "25" },
+        { type: "strategy", title: "Add SOL and Base chain support", description: "Expand multi-chain coverage beyond ETH and Arbitrum to Solana and Base" },
       ],
     };
 
@@ -402,6 +448,13 @@ async function main() {
         { amount: "0.005", source: "audience_insight" },
         { amount: "0.005", source: "audience_insight" },
         { amount: "0.005", source: "audience_insight" },
+      ],
+      "Paymon": [
+        { amount: "0.01", source: "crypto_payment_integration" },
+        { amount: "0.01", source: "crypto_payment_integration" },
+        { amount: "0.01", source: "crypto_payment_integration" },
+        { amount: "0.01", source: "crypto_payment_integration" },
+        { amount: "0.01", source: "crypto_payment_integration" },
       ],
     };
 
@@ -593,6 +646,34 @@ async function main() {
           "X bio keywords are the fastest signal for role identification",
           "GitHub contribution graph reveals technical depth and focus areas",
           "cross-reference company domain with LinkedIn for org chart mapping",
+        ],
+      },
+    },
+    {
+      corpusName: "Paymon",
+      title: "Crypto Checkout Integration Guide",
+      category: "Developer Tools",
+      channel: "X",
+      description:
+        "Step-by-step playbook for integrating crypto payments into any web app. Covers USDC/ETH/SOL, gas abstraction, webhook setup, and multi-chain fallback strategies.",
+      price: "0.8",
+      version: 2,
+      tags: ["crypto", "payments", "sdk", "web3"],
+      impressions: 28400,
+      engagementRate: "6.5",
+      conversions: 37,
+      periodDays: 21,
+      content: {
+        schedule: { scans_per_day: 3, best_hours_utc: [10, 15, 20], platforms: ["X", "Discord", "GitHub"] },
+        templates: [
+          { type: "integration", pattern: "import { Paymon } from '@paymon/sdk'\nconst pay = new Paymon({ apiKey: 'pk_...' })\npay.checkout({ amount: {price}, currency: '{token}' })", usage: "3-line checkout" },
+          { type: "webhook", pattern: "pay.on('payment.confirmed', (tx) => { /* settle */ })", usage: "webhook handler" },
+        ],
+        hashtags: ["#cryptopayments", "#web3dev", "#usdc"],
+        tactics: [
+          "always default to USDC — lowest friction for first-time crypto payers",
+          "abstract gas fees into checkout price — users hate surprise fees",
+          "offer multi-chain fallback: if Arbitrum congested, route to Base",
         ],
       },
     },
