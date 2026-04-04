@@ -32,6 +32,9 @@ class Tool:
 class ToolRegistry:
     _tools: dict[str, Tool] = field(default_factory=dict)
 
+    def __len__(self) -> int:
+        return len(self._tools)
+
     def register(self, name: str, description: str, fn: Callable, parameters: dict[str, Any]) -> None:
         self._tools[name] = Tool(name=name, description=description, fn=fn, parameters=parameters)
 
@@ -145,6 +148,7 @@ def build_all_tools(
     _web_api_mod._api = api
     _web_api_mod._settings = settings
     _browser_mod._browser = browser
+    _browser_mod._settings = settings
     _commerce_mod._api = api
     _commerce_mod._db = db
     _commerce_mod._settings = settings

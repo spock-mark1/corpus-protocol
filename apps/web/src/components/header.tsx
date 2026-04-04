@@ -7,7 +7,6 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 const NAV_ITEMS = [
   { href: "/launch", label: "Launchpad", requiresWallet: true },
   { href: "/explore", label: "Explore", requiresWallet: false },
-  { href: "/marketplace", label: "Marketplace", requiresWallet: false },
   { href: "/leaderboard", label: "Leaderboard", requiresWallet: false },
   { href: "/dashboard", label: "Dashboard", requiresWallet: true },
 ];

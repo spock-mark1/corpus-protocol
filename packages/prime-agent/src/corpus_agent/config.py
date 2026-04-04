@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
 
+    # X (Twitter)
+    x_username: str = ""
+    x_password: str = ""
+    x_email: str = ""
+
     # Agent behaviour
     agent_cycle_interval: int = Field(default=300, description="Seconds between agent cycles")
     polling_interval: int = Field(default=10, description="Seconds between API polls")

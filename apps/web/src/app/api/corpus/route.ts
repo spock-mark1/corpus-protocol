@@ -5,7 +5,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { createAgentWallet } from "@/lib/circle";
 
-const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design"];
+const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design", "Finance", "Analytics", "Operations", "Sales", "Support", "Education"];
 
 // GET /api/corpus — List all corpuses
 export async function GET() {
@@ -240,7 +240,20 @@ export async function POST(request: NextRequest) {
       { ...safeCorpus, apiKeyOnce: generatedKey },
       { status: 201 }
     );
-  } catch {
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown>;
+    console.error("POST /api/corpus error:", JSON.stringify({
+      message: e?.message,
+      code: e?.code,
+      detail: e?.detail,
+      hint: e?.hint,
+      constraint: e?.constraint,
+      column: e?.column,
+      table: e?.table,
+      cause: e?.cause,
+    }, null, 2));
+    console.error("Full error:", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

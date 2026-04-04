@@ -30,6 +30,13 @@ class CorpusAPIClient:
             return r.json()
         return None
 
+    async def get_corpus_me(self) -> dict | None:
+        """Resolve corpus from API key — no corpus ID needed."""
+        r = await self._client.get("/api/corpus/me")
+        if r.status_code == 200:
+            return r.json()
+        return None
+
     # ── Activity Reporting ─────────────────────────────────
 
     async def report_activity(

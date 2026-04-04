@@ -109,7 +109,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     }
   }, [address, corpus.id, isPatron, myPulseBalance]);
 
-  const REVENUE_HISTORY = corpus.revenueHistory;
+  const REVENUE_HISTORY = corpus.revenueHistory ?? [];
   const maxRevenue = Math.max(...REVENUE_HISTORY.map((r) => r.amount), 1);
 
   return (
@@ -396,8 +396,8 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
           <div className="grid grid-cols-3 gap-4">
             {[
               { label: "Total Revenue", value: corpus.revenue },
-              { label: "This Month", value: `$${REVENUE_HISTORY[REVENUE_HISTORY.length - 1].amount.toLocaleString()}` },
-              { label: "Avg Monthly", value: `$${Math.round(REVENUE_HISTORY.reduce((s, r) => s + r.amount, 0) / REVENUE_HISTORY.length).toLocaleString()}` },
+              { label: "This Month", value: `$${(REVENUE_HISTORY[REVENUE_HISTORY.length - 1]?.amount ?? 0).toLocaleString()}` },
+              { label: "Avg Monthly", value: `$${Math.round(REVENUE_HISTORY.length > 0 ? REVENUE_HISTORY.reduce((s, r) => s + r.amount, 0) / REVENUE_HISTORY.length : 0).toLocaleString()}` },
             ].map((s) => (
               <div key={s.label} className="bg-surface border border-border p-4 text-center">
                 <div className="text-xl font-bold text-accent">{s.value}</div>

@@ -22,22 +22,28 @@ def main():
 
 
 @main.command()
-@click.option("--corpus-id", required=True, help="Corpus ID (e.g. 0.0.111 or cuid)")
+@click.option("--corpus-id", default=None, help="Corpus ID (overrides CORPUS_ID in .env)")
 @click.option("--env-file", default=".env", help="Path to .env file")
-def start(corpus_id: str, env_file: str):
+def start(corpus_id: str | None, env_file: str):
     """Start the Prime Agent for a Corpus."""
     ensure_app_dir()
-    settings = Settings(corpus_id=corpus_id, _env_file=env_file)
+    kwargs: dict = {"_env_file": env_file}
+    if corpus_id:
+        kwargs["corpus_id"] = corpus_id
+    settings = Settings(**kwargs)
 
     if not settings.corpus_api_key:
-        console.print("[red]Error:[/red] CORPUS_API_KEY is required. Run `corpus-agent config` first.")
+        console.print("[red]Error:[/red] CORPUS_API_KEY is required. Set it in .env or run `corpus-agent config`.")
         sys.exit(1)
     if not settings.openai_api_key:
-        console.print("[red]Error:[/red] OPENAI_API_KEY is required.")
+        console.print("[red]Error:[/red] OPENAI_API_KEY is required. Set it in .env.")
         sys.exit(1)
 
     console.print(f"[bold green]Corpus Agent v{__version__}[/bold green]")
-    console.print(f"  Corpus ID:  {settings.corpus_id}")
+    if settings.corpus_id:
+        console.print(f"  Corpus ID:  {settings.corpus_id}")
+    else:
+        console.print("  Corpus ID:  (auto-resolve from API key)")
     console.print(f"  API URL:    {settings.corpus_api_url}")
     console.print()
 

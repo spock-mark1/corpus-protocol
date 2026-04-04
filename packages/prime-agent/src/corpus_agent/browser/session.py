@@ -13,39 +13,46 @@ MAX_RECONNECT_ATTEMPTS = 3
 class BrowserSession:
     """Wrapper around Stagehand for local Chrome automation with reconnect."""
 
-    def __init__(self, stagehand: Stagehand):
-        self._stagehand = stagehand
-        self.page = stagehand.page
+    def __init__(self, client: Stagehand, session_id: str):
+        self._client = client
+        self._session_id = session_id
         self._closed = False
 
     @classmethod
-    async def start(cls) -> BrowserSession:
-        stagehand = Stagehand(
-            env="LOCAL",
-            model_name="gpt-4o",
-            headless=False,
+    async def start(cls, *, model_api_key: str | None = None) -> BrowserSession:
+        client = Stagehand(
+            server="local",
+            local_headless=False,
+            model_api_key=model_api_key,
         )
-        await stagehand.init()
-        return cls(stagehand)
+        session = client.sessions.start(
+            model_name="gpt-4o",
+            browser={"type": "local", "launchOptions": {"headless": False}},
+        )
+        session_id = session.id if hasattr(session, "id") else str(session)
+        return cls(client, session_id)
 
     async def reconnect(self) -> None:
         """Tear down old session and start a fresh one."""
         console.print("[yellow]Reconnecting browser session...[/yellow]")
         try:
-            await self._stagehand.close()
+            self._client.sessions.end(self._session_id)
         except Exception:
             pass
 
         for attempt in range(1, MAX_RECONNECT_ATTEMPTS + 1):
             try:
-                stagehand = Stagehand(
-                    env="LOCAL",
-                    model_name="gpt-4o",
-                    headless=False,
+                client = Stagehand(
+                    server="local",
+                    local_headless=False,
                 )
-                await stagehand.init()
-                self._stagehand = stagehand
-                self.page = stagehand.page
+                session = client.sessions.start(
+                    model_name="gpt-4o",
+                    browser={"type": "local", "launchOptions": {"headless": False}},
+                )
+                session_id = session.id if hasattr(session, "id") else str(session)
+                self._client = client
+                self._session_id = session_id
                 self._closed = False
                 console.print(f"[green]Browser reconnected (attempt {attempt}).[/green]")
                 return
@@ -61,32 +68,35 @@ class BrowserSession:
         if self._closed:
             return False
         try:
-            # Quick check — accessing page.url should not throw if session is alive
-            _ = self.page.url
-            return True
+            return self._session_id is not None
         except Exception:
             return False
 
     async def goto(self, url: str) -> None:
-        await self.page.goto(url)
+        self._client.sessions.navigate(self._session_id, url=url)
 
     async def act(self, instruction: str) -> str:
-        result = await self.page.act(instruction)
+        result = self._client.sessions.act(
+            self._session_id, input=instruction
+        )
         return str(result)
 
     async def extract(self, instruction: str, schema: dict | None = None) -> dict | list:
         kwargs: dict = {"instruction": instruction}
         if schema:
             kwargs["schema"] = schema
-        result = await self.page.extract(**kwargs)
-        return result
+        response = self._client.sessions.extract(self._session_id, **kwargs)
+        # Unwrap SessionExtractResponse → .data.result
+        if hasattr(response, "data") and hasattr(response.data, "result"):
+            return response.data.result
+        return response
 
     async def url(self) -> str:
-        return self.page.url
+        return ""
 
     async def close(self) -> None:
         self._closed = True
         try:
-            await self._stagehand.close()
+            self._client.sessions.end(self._session_id)
         except Exception:
             pass

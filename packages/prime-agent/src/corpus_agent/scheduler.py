@@ -24,7 +24,14 @@ async def run(settings: Settings) -> None:
 
     # Download corpus config
     console.print("[bold]Downloading corpus config...[/bold]")
-    corpus_config = await api.get_corpus(settings.corpus_id)
+    if settings.corpus_id:
+        corpus_config = await api.get_corpus(settings.corpus_id)
+    else:
+        # Auto-resolve corpus from API key
+        corpus_config = await api.get_corpus_me()
+        if corpus_config:
+            settings.corpus_id = corpus_config["id"]
+            console.print(f"[green]Resolved corpus from API key:[/green] {corpus_config.get('name')} ({corpus_config['id']})")
     if not corpus_config:
         console.print("[red]Failed to fetch corpus config. Check API key and corpus ID.[/red]")
         db.close()
@@ -40,7 +47,7 @@ async def run(settings: Settings) -> None:
 
     # Start browser session
     console.print("[bold]Starting browser session...[/bold]")
-    browser = await BrowserSession.start()
+    browser = await BrowserSession.start(model_api_key=settings.openai_api_key)
     console.print("[green]Browser ready.[/green]")
 
     # Build tools

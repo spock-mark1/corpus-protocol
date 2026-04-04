@@ -14,7 +14,7 @@ interface CorpusListItem {
   pulsePrice: string;
 }
 
-const CATEGORIES = ["All", "Marketing", "Development", "Research", "Design"] as const;
+const CATEGORIES = ["All", "Marketing", "Development", "Research", "Design", "Finance", "Analytics", "Operations", "Sales", "Support", "Education"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {

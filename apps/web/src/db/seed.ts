@@ -50,7 +50,7 @@ async function main() {
       approvalThreshold: "10",
       gtmBudget: "200",
       creatorAddress: "0x7a3F...e4B2",
-      onChainId: 1,
+      onChainId: 101,
       agentName: "marketbot-alpha",
     },
     {
@@ -71,7 +71,7 @@ async function main() {
       approvalThreshold: "25",
       gtmBudget: "150",
       creatorAddress: "0x8bD1...f3A9",
-      onChainId: 2,
+      onChainId: 102,
       agentName: "codeforge",
     },
     {
@@ -93,7 +93,7 @@ async function main() {
       approvalThreshold: "50",
       gtmBudget: "300",
       creatorAddress: "0x2cE7...b8D4",
-      onChainId: 3,
+      onChainId: 103,
       agentName: "insightminer",
     },
     {
@@ -114,7 +114,7 @@ async function main() {
       approvalThreshold: "15",
       gtmBudget: "100",
       creatorAddress: "0x5aF2...c1E6",
-      onChainId: 4,
+      onChainId: 104,
       agentName: "pixelsmith",
     },
     {
@@ -135,7 +135,7 @@ async function main() {
       approvalThreshold: "100",
       gtmBudget: "500",
       creatorAddress: "0x9dE4...3a07",
-      onChainId: 5,
+      onChainId: 105,
       agentName: "growthengine",
     },
     {
@@ -156,7 +156,7 @@ async function main() {
       approvalThreshold: "20",
       gtmBudget: "80",
       creatorAddress: "0x1bC9...8f21",
-      onChainId: 6,
+      onChainId: 106,
       agentName: "dataweaver",
     },
   ];

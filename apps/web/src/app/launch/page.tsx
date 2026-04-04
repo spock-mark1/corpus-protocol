@@ -382,6 +382,12 @@ function LaunchForm() {
                 <option value="development">Development</option>
                 <option value="research">Research</option>
                 <option value="design">Design</option>
+                <option value="finance">Finance</option>
+                <option value="analytics">Analytics</option>
+                <option value="operations">Operations</option>
+                <option value="sales">Sales</option>
+                <option value="support">Support</option>
+                <option value="education">Education</option>
               </select>
             </div>
           </div>
@@ -626,7 +632,7 @@ function LaunchForm() {
           <button
             onClick={() => setStep(step + 1)}
             disabled={!canNext()}
-            className="px-6 py-2.5 text-sm bg-accent text-background font-medium hover:bg-foreground transition-colors disabled:opacity-30 disabled:cursor-default"
+            className="px-6 py-2.5 text-sm bg-accent text-background font-medium hover:bg-foreground transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
           >
             Next
           </button>
