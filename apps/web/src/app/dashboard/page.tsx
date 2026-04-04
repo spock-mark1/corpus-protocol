@@ -79,6 +79,11 @@ export default async function DashboardPage() {
     };
   }).filter((r) => r.totalRevenue > 0);
 
+  function maskApiKey(key: string | null): string | null {
+    if (!key || key.length < 12) return null;
+    return `${key.slice(0, 8)}${"*".repeat(key.length - 12)}${key.slice(-4)}`;
+  }
+
   // Corpus management data
   const corpusManagement = corpuses.map((c) => ({
     id: c.id,
@@ -90,6 +95,7 @@ export default async function DashboardPage() {
     hederaTokenId: c.hederaTokenId ?? "",
     totalSupply: c.totalSupply,
     pulsePrice: Number(c.pulsePrice),
+    apiKeyMasked: maskApiKey(c.apiKey),
   }));
 
   return (

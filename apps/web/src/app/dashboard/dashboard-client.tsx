@@ -53,6 +53,7 @@ interface Props {
     hederaTokenId: string;
     totalSupply: number;
     pulsePrice: number;
+    apiKeyMasked: string | null;
   }[];
 }
 
@@ -82,6 +83,69 @@ export function DashboardClient(props: Props) {
     >
       <DashboardContent {...props} />
     </WalletGate>
+  );
+}
+
+function ApiKeyCell({ corpusId, masked }: { corpusId: string; masked: string | null }) {
+  const { address } = useWallet();
+  const [display, setDisplay] = useState(masked);
+  const [regenerating, setRegenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleRegenerate() {
+    if (!address) return;
+    if (!confirm("Regenerate API key? The current key will be invalidated immediately.")) return;
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/corpus/${corpusId}/regenerate-key`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: address }),
+      });
+      if (res.ok) {
+        const { apiKey } = await res.json();
+        setDisplay(apiKey);
+        navigator.clipboard.writeText(apiKey);
+        setCopied(true);
+        setTimeout(() => {
+          setDisplay(`${apiKey.slice(0, 8)}${"*".repeat(apiKey.length - 12)}${apiKey.slice(-4)}`);
+          setCopied(false);
+        }, 30_000);
+      }
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  function handleCopy() {
+    if (display) {
+      navigator.clipboard.writeText(display);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  if (!display) return <span className="text-muted">—</span>;
+
+  return (
+    <div className="flex items-center gap-2">
+      <code className="text-foreground text-[11px] bg-background px-1.5 py-0.5 break-all">{display}</code>
+      <button
+        onClick={handleCopy}
+        className="text-muted hover:text-accent text-[10px] shrink-0"
+        title="Copy"
+      >
+        {copied ? "COPIED" : "COPY"}
+      </button>
+      <button
+        onClick={handleRegenerate}
+        disabled={regenerating}
+        className="text-muted hover:text-yellow-500 text-[10px] shrink-0 disabled:opacity-50"
+        title="Regenerate key (invalidates current key)"
+      >
+        {regenerating ? "..." : "REGENERATE"}
+      </button>
+    </div>
   );
 }
 
@@ -332,6 +396,12 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                 <div>
                   <span className="text-muted">Token</span>
                   <p className="text-foreground mt-0.5 font-mono">{c.hederaTokenId || "—"}</p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border text-xs">
+                <span className="text-muted">Agent API Key</span>
+                <div className="mt-1">
+                  <ApiKeyCell corpusId={c.id} masked={c.apiKeyMasked} />
                 </div>
               </div>
             </div>

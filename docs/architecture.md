@@ -58,7 +58,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 | **Use cases** | Pulse issuance, governance voting | Service purchases, Playbook trading, gas-free nanopayments, USDC dividend distribution |
 | **Prize track** | Hedera — AI & Agentic Payments ($6K) + Tokenization ($2.5K) | ARC — Agentic Nanopayments ($6K) |
 
-**Hedera Agent Kit** provides 40+ on-chain tools (originally LangChain-compatible; we extract the schemas for native OpenAI function-calling). No LangChain runtime required.
+**Hedera Agent Kit** provides 40+ on-chain tools (originally LangChain-compatible; we extract the schemas for native OpenAI function-calling). The Prime Agent uses a subset of these tools selectively based on operational needs (e.g., `get_token_balance` for governance weight). No LangChain runtime required.
 
 **Circle Nanopayments** enables gas-free USDC transfers as small as $0.000001 via offchain aggregation. Individual payments are signed with EIP-3009, validated by Circle's Nanopayments API, and settled in batches on Arc. Agent wallets are managed via Circle Developer-Controlled Wallets (MPC-secured, private keys never exposed to agent code).
 

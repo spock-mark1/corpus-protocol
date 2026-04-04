@@ -13,6 +13,7 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^10.2.0",
     "@dynamic-labs/ethereum": "^4.75.0",
     "@dynamic-labs/sdk-react-core": "^4.75.0",
     "@dynamic-labs/wallet-connect": "^4.75.0",

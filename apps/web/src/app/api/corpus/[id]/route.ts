@@ -2,6 +2,11 @@ import { db } from "@/db";
 import { cppCorpus } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+function maskApiKey(key: string | null): string | null {
+  if (!key || key.length < 12) return null;
+  return `${key.slice(0, 8)}${"*".repeat(key.length - 12)}${key.slice(-4)}`;
+}
+
 // GET /api/corpus/:id — Corpus detail + configuration
 export async function GET(
   _request: Request,
@@ -25,9 +30,8 @@ export async function GET(
       return Response.json({ error: "Corpus not found" }, { status: 404 });
     }
 
-    // Exclude apiKey from response
-    const { apiKey: _apiKey, ...safeCorpus } = corpus;
-    return Response.json(safeCorpus);
+    const { apiKey, ...safeCorpus } = corpus;
+    return Response.json({ ...safeCorpus, apiKeyMasked: maskApiKey(apiKey) });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

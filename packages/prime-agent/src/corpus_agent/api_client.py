@@ -12,6 +12,7 @@ from corpus_agent.config import Settings
 class CorpusAPIClient:
     def __init__(self, settings: Settings):
         self._base = settings.corpus_api_url.rstrip("/")
+        self._corpus_id = settings.corpus_id
         self._client = httpx.AsyncClient(
             base_url=self._base,
             headers={
@@ -97,6 +98,38 @@ class CorpusAPIClient:
         if r.status_code == 200:
             return r.json()
         return None
+
+    # ── Agent Wallet (Circle MPC) ────────────────────────────
+
+    async def get_agent_wallet(self) -> dict | None:
+        """Fetch agent wallet info (walletId, address) from Web."""
+        r = await self._client.get(f"/api/corpus/{self._corpus_id}/wallet")
+        if r.status_code == 200:
+            return r.json()
+        return None
+
+    async def sign_payment(
+        self,
+        *,
+        payee: str,
+        amount: int,
+        token_address: str | None = None,
+        chain_id: int | None = None,
+    ) -> dict | None:
+        """Request x402 payment signature from Web's Circle MPC proxy."""
+        payload: dict[str, Any] = {"payee": payee, "amount": amount}
+        if token_address:
+            payload["tokenAddress"] = token_address
+        if chain_id:
+            payload["chainId"] = chain_id
+        r = await self._client.post(f"/api/corpus/{self._corpus_id}/sign", json=payload)
+        if r.status_code == 200:
+            return r.json()
+        # Return error details
+        try:
+            return r.json()
+        except Exception:
+            return {"error": f"Sign request failed with status {r.status_code}"}
 
     # ── Commerce / x402 ────────────────────────────────────
 

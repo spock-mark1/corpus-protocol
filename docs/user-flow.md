@@ -19,6 +19,11 @@
    │   - Approval threshold (e.g., transactions > $10 require approval)
    │   - GTM budget limits, operational parameters
    ├── CorpusNameService.registerName() — immutable agent identity
+   ├── Create Agent Wallet (Circle Developer-Controlled Wallet)
+   │   - Web calls Circle SDK → MPC wallet created on Arc
+   │   - walletId + address saved to Supabase
+   │   - Testnet: auto-fund via Circle faucet (20 USDC)
+   │   - Agent signs x402 payments via this wallet (private key never exposed)
    ├── Prime Agent configuration
    │   - Persona, target audience, tone & voice
    │   - GTM target channels (X, LinkedIn, Reddit, etc.)
@@ -31,6 +36,37 @@
 ```
 
 **Launchpad Fee:** 3% of total Pulse supply is sent to the Corpus Protocol wallet on every Genesis as a platform fee. This is enforced on-chain in the CorpusRegistry contract (`LAUNCHPAD_FEE_BPS = 300`).
+
+## 5.1.1 Wallet Architecture
+
+Corpus Protocol uses two distinct wallet types for different purposes.
+
+| Subject | Wallet Type | Created By | When | Purpose |
+|---|---|---|---|---|
+| **Creator** | User-owned (Dynamic: MetaMask, HashPack, etc.) | User connects manually | Launchpad entry | Hedera Pulse signing, Dashboard approvals |
+| **Prime Agent** | Circle Developer-Controlled Wallet (MPC) | **Web backend, auto-created** | **Corpus Genesis** | x402 payments, USDC receipt, dividend distribution |
+| **Patron** | User-owned (Dynamic) | User connects manually | Explore page | Pulse purchase, dividend receipt |
+
+**Why Circle MPC for Agent Wallets:**
+- Private key never exists in one place — split across MPC nodes via Shamir's Secret Sharing
+- Agent code calls Circle API to sign → Circle MPC nodes cooperate to produce signature → signed tx broadcast
+- Agent can sign autonomously without human approval (default mode)
+- No `PRIVATE_KEY` in .env — only `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET`
+
+```
+Agent code: "Send 0.05 USDC to 0xABC"
+    │
+    ▼
+Circle API (POST /developer/transactions)
+    │
+    ▼
+MPC Node A (key shard 1) + MPC Node B (key shard 2)
+    │ cooperate to sign (key never reassembled)
+    ▼
+Signed transaction → broadcast to Arc
+```
+
+**1 Corpus = 1 Agent Wallet** — each Corpus has its own Circle wallet address for independent financial operations.
 
 ## 5.2 Pulse Trading & Patron Registration
 

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cppCorpus, cppPatrons } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { createAgentWallet } from "@/lib/circle";
 
 const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design"];
 
@@ -164,6 +165,18 @@ export async function POST(request: NextRequest) {
     // Generate API key for local agent
     const apiKey = `cpk_${randomBytes(24).toString("hex")}`;
 
+    // Create Circle MPC wallet for Prime Agent (x402 payments on Arc)
+    let agentWalletId: string | null = null;
+    let agentWalletAddress: string | null = null;
+    try {
+      const wallet = await createAgentWallet();
+      agentWalletId = wallet.walletId;
+      agentWalletAddress = wallet.address;
+    } catch (err) {
+      console.error("Circle wallet creation failed:", err);
+      // Non-blocking — corpus can still be created without agent wallet
+    }
+
     const [corpus] = await db
       .insert(cppCorpus)
       .values({
@@ -190,6 +203,8 @@ export async function POST(request: NextRequest) {
         onChainId: onChainId ?? null,
         agentName: agentName ?? null,
         hederaTokenId: hederaTokenId ?? null,
+        agentWalletId,
+        agentWalletAddress,
       })
       .returning();
 

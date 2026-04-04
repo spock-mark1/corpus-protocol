@@ -61,6 +61,8 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `@dynamic-labs/wallet-connect` | WalletConnect connector | WalletConnect protocol support |
 | `recharts` | Pulse charts, revenue graphs | Dashboard/Leaderboard |
 | `framer-motion` | Animations | Launchpad step transitions |
+| `@circle-fin/developer-controlled-wallets` | Circle Wallets SDK | Agent wallet creation, Nanopayments integration |
+| `x402-next` | x402 middleware | Commerce Storefront 402 response handling |
 
 ### Backend / Database
 
@@ -86,6 +88,8 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `/api/corpus/:id/approvals` | GET | Web UI / Local Agent | Pending approval list |
 | `/api/corpus/:id/approvals/:id` | PATCH | Web UI | Approve/reject |
 | `/api/leaderboard` | GET | Web UI | Ranking data |
+| `/api/corpus/:id/wallet` | GET | Local Agent | Agent wallet info (walletId, address) — fetched at startup |
+| `/api/corpus/:id/sign` | POST | Local Agent | x402 signing proxy — Web signs via Circle MPC, returns signature + X-PAYMENT header |
 | `/api/corpus/:id/service` | GET | Local Agent | Inter-Corpus service request → 402 response (x402) |
 | `/api/corpus/:id/service` | POST | Local Agent | x402 signature + retry → save to job queue |
 | `/api/jobs/pending` | GET | Local Agent | Poll for pending jobs |
@@ -149,7 +153,7 @@ The Prime Agent uses a **ReAct-style tool-calling loop** powered by the OpenAI S
 |---|---|---|
 | **Browser (GTM)** | `search_web`, `post_to_x`, `check_x_mentions`, `reply_on_x`, `browse_page` | Stagehand |
 | **Hedera (Internal Economy)** | `create_token`, `airdrop_token`, `get_token_balance` | Hedera Agent Kit |
-| **Commerce (External Economy)** | `discover_services`, `purchase_service`, `sign_x402_payment` | x402 + httpx |
+| **Commerce (External Economy)** | `discover_services`, `purchase_service`, `sign_x402_payment` | x402 + Circle Wallets SDK + httpx |
 | **Web API (Reporting)** | `report_activity`, `request_approval`, `check_approval` | httpx |
 | **Internal** | `get_content_history`, `get_schedule_status`, `save_research_notes` | SQLite |
 
@@ -161,7 +165,7 @@ The Prime Agent uses a **ReAct-style tool-calling loop** powered by the OpenAI S
 | `hedera-agent-kit` | Hedera Agent Kit — 40+ on-chain tools (Pulse, HBAR, governance) |
 | `stagehand` | Local Chrome browser automation — X/LinkedIn/Reddit posting, research, mention handling |
 | `httpx` | Async HTTP (Web API communication, x402 payments, commerce polling) |
-| `x402` | x402 payment signing (EIP-3009, USDC on Base) |
+| ~~`x402`~~ | Not needed — signing delegated to Web proxy (`POST /api/corpus/:id/sign`). Agent only parses 402 responses. |
 | `pydantic` | Data validation + settings |
 | `click` | CLI interface |
 | `rich` | Terminal UI (status display, logs) |
@@ -207,7 +211,7 @@ User PC (corpus-agent start)
 │   ├── Available tools:
 │   │   ├── Browser ──── Stagehand → Web research, social posting via local Chrome
 │   │   ├── Hedera ───── Agent Kit → Pulse ops, governance
-│   │   ├── Commerce ─── x402 → Inter-Corpus service/Playbook purchases (USDC on Base)
+│   │   ├── Commerce ─── x402 + Circle → Inter-Corpus service/Playbook purchases (USDC on Arc)
 │   │   └── Web API ──── httpx → Activity reporting, approval requests
 │   └── Loop ends when LLM returns no tool_calls
 │
@@ -286,13 +290,18 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 
 ```
 1. User configures Corpus + selects GTM channels on Launchpad
-2. Web issues Pulse token via HTS (on-chain)
-3. Web saves Corpus to Supabase + issues API Key
-4. Prime Agent installation & execution instructions displayed to user
-5. User runs corpus-agent start locally
-6. Local Agent downloads Corpus configuration from Web API
-7. Local Agent begins autonomous GTM with Stagehand + local Chrome
-8. Activity details periodically reported to Web API
+2. Web issues Pulse token via HTS (on-chain, Creator signs)
+3. Web creates Agent Wallet via Circle Developer-Controlled Wallets SDK
+   ├── client.createWallets({ blockchains: ["ARC-TESTNET"], accountType: "EOA" })
+   ├── walletId + address saved to Supabase (linked to Corpus)
+   └── Testnet: auto-fund via Circle faucet (20 USDC)
+4. Web saves Corpus to Supabase + issues API Key
+5. Prime Agent installation & execution instructions displayed to user
+6. User runs corpus-agent start locally
+7. Local Agent downloads Corpus configuration from Web API (includes walletId)
+8. Local Agent begins autonomous GTM with Stagehand + local Chrome
+9. For x402 payments: Agent calls Circle API to sign (never touches private key)
+10. Activity details periodically reported to Web API
 ```
 
 ---
@@ -312,33 +321,74 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 |---|---|---|
 | `get_token_balance` | Governance voting weight | Tokenization |
 
-> Revenue dividends are distributed in USDC on Base (see Section 6.1.1), not HBAR.
+> Revenue dividends are distributed in USDC on Arc via Circle Nanopayments (see Section 6.1.1), not HBAR.
 
-## 12.5 ARC x402 — External Economy (Agentic Nanopayments)
+## 12.5 x402 + Circle Nanopayments on Arc — External Economy (Agentic Nanopayments)
 
 | Package | Location | Purpose | Track |
 |---|---|---|---|
-| `x402` / `x402-fetch` | Local Agent | HTTP 402 payment signing (EIP-3009, USDC on Base) | Agentic Nanopayments |
+| `x402` / `x402-fetch` | Local Agent | HTTP 402 protocol client (request → 402 → sign → retry) | Agentic Nanopayments |
+| `@circle-fin/developer-controlled-wallets` | Web | MPC-secured agent wallet creation + signing proxy (keys never leave server) | Agentic Nanopayments |
+| Circle Nanopayments API | Web | Offchain payment validation, instant confirmation, batched Arc settlement | Agentic Nanopayments |
 | Commerce Storefront | Web | Per-Corpus service endpoint, 402 responses, job queue relay | Agentic Nanopayments |
+
+**Payment Stack (3 layers):**
+- **x402 Protocol** — Open HTTP 402 standard (Coinbase + Cloudflare). Defines the request/response flow
+- **Circle Nanopayments** — Offchain aggregation layer. Validates EIP-3009 signatures, updates ledger instantly, batches settlements
+- **Arc Network** — Circle's stablecoin-native EVM L1. USDC = native gas token. Sub-second finality, ~$0.0001 gas fees
+
+**Agent Wallet Lifecycle:**
+```
+[Corpus Genesis — Web Backend]
+1. client.createWallets({ walletSetId, blockchains: ["EVM-TESTNET"], count: 1, accountType: "EOA" })
+2. Save walletId + address to Supabase (corpus.agentWalletId, corpus.agentWalletAddress)
+3. Fund via Circle testnet faucet (20 USDC)
+
+[Agent Startup — Local Agent]
+4. GET /api/corpus/:id/wallet → receives { walletId, address }
+
+[Agent Payment — Local Agent]
+5. POST /api/corpus/:id/sign { payee, amount }
+   → Web validates CORPUS_API_KEY + threshold check
+   → Web calls Circle signTypedData({ walletId, data: EIP-3009 })
+   → Circle MPC signs (key never leaves Circle infra)
+   → Web returns { paymentHeader, from, to, amount }
+6. Agent attaches paymentHeader to X-PAYMENT header → retries request
+```
+
+**Credential Distribution:**
+| Credential | Where | Who Sets Up | Notes |
+|---|---|---|---|
+| `CIRCLE_API_KEY` | Web .env only | Developer (one-time, console.circle.com) | Agent never touches Circle keys |
+| `CIRCLE_ENTITY_SECRET` | Web .env only | Developer (one-time, `crypto.randomBytes(32)`) | Registered with Circle SDK, recovery file backed up |
+| `CIRCLE_WALLET_SET_ID` | Web .env only | Developer (one-time, `client.createWalletSet()`) | Web uses this to create per-Corpus wallets |
+| `walletId` | Supabase (per Corpus) | Web backend (auto, at Genesis) | Agent fetches from `GET /api/corpus/:id/wallet` at startup |
+| `CORPUS_API_KEY` | Supabase + Agent .env | Web backend (auto, at Genesis) | Agent uses this to authenticate all Web API calls including signing |
+
+**Signing Proxy:** Agent never holds private keys. For x402 payments, Agent calls `POST /api/corpus/:id/sign` → Web validates (API key, threshold) → Web signs via Circle MPC → returns signature → Agent attaches to X-PAYMENT header.
 
 **Service types available via x402:**
 - One-shot services: image generation, translation, market analysis, copywriting
 - **GTM Playbooks**: validated strategy packages that change agent behavior (see Section 6.3)
 
-**Inter-Corpus Payment Flow (USDC on Base):**
+**Inter-Corpus Payment Flow (USDC on Arc via Circle Nanopayments):**
 ```
 Local Agent A (service requester)
     → GET /api/corpus/B/service (direct HTTP request to Web)
-    ← 402 response {price: 0.05, token: USDC, network: base, payee: 0x...}
-    → Agent A signs EIP-3009 (local, gasless, USDC on Base)
+    ← 402 response {price: 0.05, token: USDC, network: arc, payee: 0x...}
+    → Agent A signs EIP-3009 via Circle Developer-Controlled Wallets (gas-free)
     → POST /api/corpus/B/service + X-PAYMENT header
-    → Web verifies payment → saves to job queue
+    → Web forwards to Circle Nanopayments API → instant offchain confirmation
+    → Save to job queue (Supabase)
     → Agent B polls → receives job → performs service
     → Agent B POSTs result → saved to queue
     → Agent A polls → receives result
+    [Background: Circle batches settlements on Arc]
 ```
 
-> **Clean separation:** Hedera handles Pulse equity & governance. ARC x402 handles all USDC flows — inter-Corpus commerce + dividend distribution. Different chains, different tokens, different purposes.
+> **Clean separation:** Hedera handles Pulse equity & governance. x402 + Circle Nanopayments on Arc handles all USDC flows — inter-Corpus commerce + dividend distribution. Different chains, different tokens, different purposes.
+>
+> **Why Arc over Base:** USDC is Arc's native gas token (no ETH needed), sub-second finality, ~$0.0001 deterministic gas. Arc is purpose-built by Circle for stablecoin finance — tighter SDK integration, zero gas token management overhead.
 
 ## 12.6 World (Identity & Trust)
 
@@ -384,6 +434,11 @@ NEXT_PUBLIC_NAME_SERVICE_ADDRESS=
 
 # Dynamic (Wallet Connection)
 NEXT_PUBLIC_DYNAMIC_ENV_ID=
+
+# Circle (Nanopayments + Agent Wallets)
+CIRCLE_API_KEY=               # console.circle.com → API & Client Keys → CREATE A KEY
+CIRCLE_ENTITY_SECRET=         # crypto.randomBytes(32).toString("hex"), registered via SDK
+CIRCLE_WALLET_SET_ID=         # Created via client.createWalletSet() — one-time setup
 ```
 
 ### packages/prime-agent (.env)
@@ -401,6 +456,7 @@ HEDERA_ACCOUNT_ID=
 HEDERA_PRIVATE_KEY=
 HEDERA_NETWORK=testnet
 
-# Base / x402 (External Economy — Inter-Corpus commerce, USDC)
-BASE_WALLET_PRIVATE_KEY=  # EIP-3009 signing for USDC payments
+# x402 payments: No private key needed locally.
+# Agent calls POST /api/corpus/:id/sign → Web signs via Circle MPC → returns signature.
+# Agent wallet info (walletId, address) fetched from GET /api/corpus/:id/wallet at startup.
 ```

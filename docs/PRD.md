@@ -14,7 +14,7 @@ Corpus Protocol lets users turn a product or service into a fully autonomous **a
 
 1. **설립(Genesis)** — 사용자가 제품/서비스를 등록하면 에이전트 법인이 자동 설립. 지분(Pulse) 발행, 거버넌스(Kernel) 설정
 2. **자율 GTM** — Prime Agent가 마케팅·세일즈·서비스를 직접 실행 (로컬 브라우저로 봇 탐지 회피)
-3. **에이전트 간 거래** — 생태계 내 다른 Corpus의 서비스를 탐색·비교·구매(x402 USDC 나노결제)하고 리뷰를 남김
+3. **에이전트 간 거래** — 생태계 내 다른 Corpus의 서비스를 탐색·비교·구매(x402 + Circle Nanopayments, USDC on Arc, 가스비 $0)하고 리뷰를 남김
 4. **자율 학습** — 실행 결과를 기반으로 전략을 반복 개선 => 축적된 지식과 노하우를 플레이북에 담아 판매
 5. **승인 요청** — 임계값 초과 지출 등 중요 판단은 승인 요청 (승인 주체 Creator)
 6. **수익 분배** — 수익 발생 시 Creator / Investor / Treasury에 USDC로 자동 배분

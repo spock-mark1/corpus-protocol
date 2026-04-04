@@ -7,8 +7,6 @@ import { eq } from "drizzle-orm";
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
 
-// In-memory nonce set for replay prevention (production: use Redis or DB table)
-const usedNonces = new Set<string>();
 
 // GET /api/corpus/:id/service — Returns 402 with payment details (x402 storefront)
 export async function GET(
@@ -18,15 +16,29 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const service = await db
-      .select()
-      .from(cppCommerceServices)
-      .where(eq(cppCommerceServices.corpusId, id))
-      .limit(1)
-      .then((r) => r[0] ?? null);
+    const [service, corpus] = await Promise.all([
+      db
+        .select()
+        .from(cppCommerceServices)
+        .where(eq(cppCommerceServices.corpusId, id))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      db
+        .select({ agentWalletAddress: cppCorpus.agentWalletAddress })
+        .from(cppCorpus)
+        .where(eq(cppCorpus.id, id))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+    ]);
 
     if (!service) {
       return Response.json({ error: "No service registered for this Corpus" }, { status: 404 });
+    }
+
+    // payee: use service wallet if set, otherwise fall back to Circle agent wallet
+    const payee = service.walletAddress || corpus?.agentWalletAddress;
+    if (!payee) {
+      return Response.json({ error: "No payment address configured for this Corpus" }, { status: 500 });
     }
 
     // Return 402 Payment Required with x402 payment details
@@ -34,7 +46,7 @@ export async function GET(
       {
         price: Number(service.price),
         currency: service.currency,
-        payee: service.walletAddress,
+        payee,
         chains: service.chains,
         chainId: ARC_CHAIN_ID,
         network: "arc",
@@ -87,16 +99,26 @@ export async function POST(
       );
     }
 
-    const service = await db
-      .select()
-      .from(cppCommerceServices)
-      .where(eq(cppCommerceServices.corpusId, id))
-      .limit(1)
-      .then((r) => r[0] ?? null);
+    const [service, providerCorpus] = await Promise.all([
+      db
+        .select()
+        .from(cppCommerceServices)
+        .where(eq(cppCommerceServices.corpusId, id))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      db
+        .select({ agentWalletAddress: cppCorpus.agentWalletAddress })
+        .from(cppCorpus)
+        .where(eq(cppCorpus.id, id))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+    ]);
 
     if (!service) {
       return Response.json({ error: "No service registered for this Corpus" }, { status: 404 });
     }
+
+    const expectedPayee = service.walletAddress || providerCorpus?.agentWalletAddress;
 
     // Parse payment header
     let payment: Record<string, unknown>;
@@ -119,10 +141,10 @@ export async function POST(
       );
     }
 
-    // 3. Verify payee matches the service wallet
-    if (to.toLowerCase() !== service.walletAddress.toLowerCase()) {
+    // 3. Verify payee matches the service/agent wallet
+    if (!expectedPayee || to.toLowerCase() !== expectedPayee.toLowerCase()) {
       return Response.json(
-        { error: "Payment 'to' address does not match service wallet", expected: service.walletAddress, received: to },
+        { error: "Payment 'to' address does not match service wallet", expected: expectedPayee, received: to },
         { status: 400 }
       );
     }
@@ -137,9 +159,15 @@ export async function POST(
       );
     }
 
-    // 5. Replay prevention — check nonce hasn't been used
+    // 5. Replay prevention — check nonce against existing jobs in DB
     if (nonce) {
-      if (usedNonces.has(nonce)) {
+      const existing = await db
+        .select({ id: cppCommerceJobs.id })
+        .from(cppCommerceJobs)
+        .where(eq(cppCommerceJobs.paymentSig, signature as string))
+        .limit(1)
+        .then((r) => r[0] ?? null);
+      if (existing) {
         return Response.json({ error: "Payment nonce already used (replay detected)" }, { status: 409 });
       }
     }
@@ -194,12 +222,7 @@ export async function POST(
       return Response.json({ error: "Invalid payment signature", details: String(sigErr) }, { status: 403 });
     }
 
-    // 7. Mark nonce as used (after successful verification)
-    if (nonce) {
-      usedNonces.add(nonce);
-    }
-
-    // 8. Create commerce job
+    // 7. Create commerce job
     const body = await request.json().catch(() => ({}));
     const payload = body.payload ?? body;
 

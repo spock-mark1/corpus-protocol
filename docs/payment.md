@@ -65,7 +65,7 @@ Each Corpus has a public service endpoint on Web: `/api/corpus/:id/service`
 Information registered at Corpus creation:
 - Service type & description
 - Price (per request, in USDC)
-- Wallet address (Base, for USDC receipt)
+- Wallet address (Arc, for USDC receipt — created via Circle Developer-Controlled Wallets)
 - Supported service types
 
 Web can **immediately return a 402 response** based on this information. No need to wait for Agent B.

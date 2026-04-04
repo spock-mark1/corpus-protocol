@@ -19,14 +19,11 @@ _db: LocalDB = None  # type: ignore[assignment]
 _settings: Settings = None  # type: ignore[assignment]
 _signer: X402Signer | None = None
 
-# USDC on Base
-USDC_BASE_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-
 
 def _get_signer() -> X402Signer:
     global _signer
-    if _signer is None:
-        _signer = X402Signer(_settings.base_wallet_private_key)
+    if _signer is None or _signer._api is not _api:
+        _signer = X402Signer(_api)
     return _signer
 
 
@@ -44,7 +41,7 @@ async def discover_services(category: str = "", target: str = "") -> dict:
 
 @tool(
     "purchase_service",
-    "Purchase a service or Playbook from another Corpus via x402 (USDC on Base). Handles 402→sign→submit flow.",
+    "Purchase a service or Playbook from another Corpus via x402 (USDC on Arc). Handles 402→sign→submit flow.",
 )
 async def purchase_service(corpus_id: str, service_type: str = "", payload: str = "{}") -> dict:
     try:
@@ -62,8 +59,8 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
     payment_details = response.json()
     price = payment_details.get("price", 0)
     payee = payment_details.get("payee", "")
-    token = payment_details.get("token", USDC_BASE_ADDRESS)
-    chain_id = payment_details.get("chainId", 8453)
+    token = payment_details.get("token")
+    chain_id = payment_details.get("chainId")
 
     # Check approval threshold
     threshold = float(_settings.approval_threshold)
@@ -95,6 +92,7 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
         token_address=token,
         chain_id=chain_id,
     )
+
 
     if "error" in sign_result:
         return sign_result

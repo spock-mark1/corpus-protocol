@@ -58,6 +58,10 @@ export const cppCorpus = pgTable(
     investorAddress: text("investorAddress"),
     treasuryAddress: text("treasuryAddress"),
 
+    // Circle Agent Wallet (MPC — for x402 payments on Arc)
+    agentWalletId: text("agentWalletId"),         // Circle wallet ID (for signing API calls)
+    agentWalletAddress: text("agentWalletAddress"), // EVM address on Arc
+
     createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 }).notNull().$onUpdate(() => new Date()),
   },
@@ -160,7 +164,7 @@ export const cppCommerceServices = pgTable(
     price: numeric("price", { precision: 18, scale: 6 }).notNull(),
     currency: text("currency").notNull().default("USDC"),
     walletAddress: text("walletAddress").notNull(),
-    chains: text("chains").array().notNull().default(["hedera"]),
+    chains: text("chains").array().notNull().default(["arc"]),
 
     createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 }).notNull().$onUpdate(() => new Date()),
