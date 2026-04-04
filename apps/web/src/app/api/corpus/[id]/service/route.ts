@@ -3,6 +3,13 @@ import { db } from "@/db";
 import { cppCorpus, cppCommerceServices, cppCommerceJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+// Arc network config (USDC = native gas token)
+const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
+
+// In-memory nonce set for replay prevention (production: use Redis or DB table)
+const usedNonces = new Set<string>();
+
 // GET /api/corpus/:id/service — Returns 402 with payment details (x402 storefront)
 export async function GET(
   request: NextRequest,
@@ -29,8 +36,9 @@ export async function GET(
         currency: service.currency,
         payee: service.walletAddress,
         chains: service.chains,
-        chainId: 8453, // Base mainnet
-        token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+        chainId: ARC_CHAIN_ID,
+        network: "arc",
+        token: USDC_ADDRESS,
         serviceName: service.serviceName,
         description: service.description,
         corpusId: id,
@@ -50,6 +58,27 @@ export async function POST(
   const { id } = await params;
 
   try {
+    // 1. Authenticate requester corpus via API key (check early)
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return Response.json(
+        { error: "Missing Authorization header. Use: Bearer <api_key>" },
+        { status: 401 }
+      );
+    }
+    const apiKeyToken = authHeader.slice(7);
+    const requester = await db
+      .select({ id: cppCorpus.id })
+      .from(cppCorpus)
+      .where(eq(cppCorpus.apiKey, apiKeyToken))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (!requester) {
+      return Response.json({ error: "Invalid API key" }, { status: 403 });
+    }
+
+    // 2. Validate X-PAYMENT header
     const paymentHeader = request.headers.get("x-payment");
     if (!paymentHeader) {
       return Response.json(
@@ -69,62 +98,58 @@ export async function POST(
       return Response.json({ error: "No service registered for this Corpus" }, { status: 404 });
     }
 
-    // Parse and verify payment header
-    let payment: {
-      from?: string;
-      to?: string;
-      value?: string;
-      signature?: string;
-      token?: string;
-      chainId?: number;
-    };
+    // Parse payment header
+    let payment: Record<string, unknown>;
     try {
       payment = JSON.parse(paymentHeader);
     } catch {
       return Response.json({ error: "Invalid X-PAYMENT header format" }, { status: 400 });
     }
 
-    // Verify required payment fields exist
-    if (!payment.from || !payment.to || !payment.value || !payment.signature) {
+    const from = payment.from as string | undefined;
+    const to = payment.to as string | undefined;
+    const value = payment.value as string | undefined;
+    const signature = payment.signature as string | undefined;
+    const nonce = payment.nonce as string | undefined;
+
+    if (!from || !to || !value || !signature) {
       return Response.json(
         { error: "X-PAYMENT must include: from, to, value, signature" },
         { status: 400 }
       );
     }
 
-    // Verify payee matches the service wallet
-    if (payment.to.toLowerCase() !== service.walletAddress.toLowerCase()) {
+    // 3. Verify payee matches the service wallet
+    if (to.toLowerCase() !== service.walletAddress.toLowerCase()) {
       return Response.json(
-        {
-          error: "Payment 'to' address does not match service wallet",
-          expected: service.walletAddress,
-          received: payment.to,
-        },
+        { error: "Payment 'to' address does not match service wallet", expected: service.walletAddress, received: to },
         { status: 400 }
       );
     }
 
-    // Verify amount meets service price (USDC has 6 decimals)
-    const paidAmount = BigInt(payment.value);
+    // 4. Verify amount (USDC 6 decimals)
+    const paidAmount = BigInt(value);
     const requiredAmount = BigInt(Math.floor(Number(service.price) * 1_000_000));
     if (paidAmount < requiredAmount) {
       return Response.json(
-        {
-          error: "Insufficient payment amount",
-          required: requiredAmount.toString(),
-          received: payment.value,
-        },
+        { error: "Insufficient payment amount", required: requiredAmount.toString(), received: value },
         { status: 402 }
       );
     }
 
-    // EIP-3009 (TransferWithAuthorization) typed data verification
+    // 5. Replay prevention — check nonce hasn't been used
+    if (nonce) {
+      if (usedNonces.has(nonce)) {
+        return Response.json({ error: "Payment nonce already used (replay detected)" }, { status: 409 });
+      }
+    }
+
+    // 6. EIP-3009 signature verification
     const { ethers } = await import("ethers");
-    const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
     const EIP3009_DOMAIN = {
       name: "USD Coin",
       version: "2",
-      chainId: 8453,
+      chainId: ARC_CHAIN_ID,
       verifyingContract: USDC_ADDRESS,
     };
     const EIP3009_TYPES = {
@@ -137,83 +162,55 @@ export async function POST(
         { name: "nonce", type: "bytes32" },
       ],
     };
+
     try {
-      if (!payment.signature) {
-        return Response.json({ error: "Missing payment signature" }, { status: 400 });
-      }
-
       const now = Math.floor(Date.now() / 1000);
-      const validAfter = Number((payment as Record<string, unknown>).validAfter ?? 0);
-      const validBefore = Number((payment as Record<string, unknown>).validBefore ?? now + 300);
+      const validAfter = Number(payment.validAfter ?? 0);
+      const validBefore = Number(payment.validBefore ?? now + 300);
 
-      // Verify payment is within valid time window
       if (now < validAfter) {
-        return Response.json(
-          { error: "Payment signature is not yet valid", validAfter, now },
-          { status: 403 }
-        );
+        return Response.json({ error: "Payment signature is not yet valid", validAfter, now }, { status: 403 });
       }
       if (now > validBefore) {
-        return Response.json(
-          { error: "Payment signature has expired", validBefore, now },
-          { status: 403 }
-        );
+        return Response.json({ error: "Payment signature has expired", validBefore, now }, { status: 403 });
       }
 
       const sigValue = {
-        from: payment.from,
-        to: payment.to,
-        value: payment.value,
+        from,
+        to,
+        value,
         validAfter,
         validBefore,
-        nonce: (payment as Record<string, unknown>).nonce ?? ethers.ZeroHash,
+        nonce: nonce ?? ethers.ZeroHash,
       };
-      const recovered = ethers.verifyTypedData(EIP3009_DOMAIN, EIP3009_TYPES, sigValue, payment.signature);
-      if (recovered.toLowerCase() !== payment.from!.toLowerCase()) {
+      const recovered = ethers.verifyTypedData(EIP3009_DOMAIN, EIP3009_TYPES, sigValue, signature);
+      if (recovered.toLowerCase() !== from.toLowerCase()) {
         return Response.json(
-          { error: "Invalid payment signature: signer mismatch", expected: payment.from, recovered },
+          { error: "Invalid payment signature: signer mismatch", expected: from, recovered },
           { status: 403 }
         );
       }
     } catch (sigErr) {
-      return Response.json(
-        { error: "Invalid payment signature", details: String(sigErr) },
-        { status: 403 }
-      );
+      return Response.json({ error: "Invalid payment signature", details: String(sigErr) }, { status: 403 });
     }
 
+    // 7. Mark nonce as used (after successful verification)
+    if (nonce) {
+      usedNonces.add(nonce);
+    }
+
+    // 8. Create commerce job
     const body = await request.json().catch(() => ({}));
     const payload = body.payload ?? body;
-
-    // Authenticate requester corpus via API key
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return Response.json(
-        { error: "Missing Authorization header. Use: Bearer <api_key>" },
-        { status: 401 }
-      );
-    }
-    const token = authHeader.slice(7);
-    const requester = await db
-      .select({ id: cppCorpus.id })
-      .from(cppCorpus)
-      .where(eq(cppCorpus.apiKey, token))
-      .limit(1)
-      .then((r) => r[0] ?? null);
-
-    if (!requester) {
-      return Response.json({ error: "Invalid API key" }, { status: 403 });
-    }
-    const requesterCorpusId = requester.id;
 
     const [job] = await db
       .insert(cppCommerceJobs)
       .values({
         corpusId: id,
-        requesterCorpusId,
+        requesterCorpusId: requester.id,
         serviceName: service.serviceName,
         payload: payload ?? undefined,
-        paymentSig: payment.signature ?? paymentHeader,
+        paymentSig: signature ?? paymentHeader,
         amount: service.price,
         status: "pending",
       })

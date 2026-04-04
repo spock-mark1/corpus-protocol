@@ -68,7 +68,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     let cancelled = false;
     setPulseLoading(true);
     fetch(
-      `https://testnet.mirrornode.hedera.com/api/v1/tokens/${corpus.hederaTokenId}/balances?account.id=${address}`
+      `${process.env.NEXT_PUBLIC_HEDERA_MIRROR_URL ?? "https://testnet.mirrornode.hedera.com"}/api/v1/tokens/${corpus.hederaTokenId}/balances?account.id=${address}`
     )
       .then((r) => r.json())
       .then((data) => {

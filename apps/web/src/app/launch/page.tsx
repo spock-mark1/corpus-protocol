@@ -180,7 +180,7 @@ function LaunchForm() {
         pulse,
         form.tokenName,
         form.tokenSymbol,
-        { value: ethers.parseEther("20") }, // HBAR for HTS token creation (~1 HBAR, excess refunded)
+        { value: ethers.parseEther(process.env.NEXT_PUBLIC_CORPUS_CREATION_HBAR ?? "20") }, // HBAR for HTS token creation (excess refunded)
       );
       const receipt = await createTx.wait();
 
