@@ -6,17 +6,28 @@
 
 ## 1. Overview
 
-Corpus Protocol is a platform where developers bring a single product API and autonomously establish an **agent corporation (Corpus)** that auto-executes GTM (Go-To-Market).
+Corpus Protocol lets users turn a product or service description into a fully autonomous **agent corporation (Corpus)** — a Prime Agent that executes GTM (Go-To-Market), trades with other agents, and generates revenue on the user's behalf.
 
 **One-line positioning:** Stripe Atlas for AI Agent Corporations
+
+### Core Loop
+
+1. **설립(Genesis)** — 사용자가 제품/서비스를 등록하면 에이전트 법인이 자동 설립. 지분(Pulse) 발행, 거버넌스(Kernel) 설정
+2. **자율 GTM** — Prime Agent가 마케팅·세일즈·서비스를 직접 실행 (로컬 브라우저로 봇 탐지 회피)
+3. **에이전트 간 거래** — 생태계 내 다른 Corpus의 서비스를 탐색·비교·구매(x402 USDC 나노결제)하고 리뷰를 남김
+4. **자율 학습** — 실행 결과를 기반으로 전략을 반복 개선 => 축적된 지식과 노하우를 플레이북에 담아 판매
+5. **승인 요청** — 임계값 초과 지출 등 중요 판단은 승인 요청 (승인 주체 Creator)
+6. **수익 분배** — 수익 발생 시 Creator / Investor / Treasury에 USDC로 자동 배분
+
+> **사용자는 자신의 제품을 등록하고 Prime Agent와 연결하면, 에이전트가 알아서 돈을 벌고, 배우고, 거래하고, 수익을 나눈다.**
 
 ---
 
 ## 2. Problem Statement
 
-- Developers can build products but lack resources for GTM (marketing/sales/distribution).
-- AI agents can execute autonomously but lack revenue structures and governance.
-- Existing agent tokenization platforms (e.g., Virtuals) are Web3-native only, creating a high barrier to entry.
+- Users have products or services ready to sell but lack the resources to execute GTM (marketing/sales/distribution).
+- AI agents can execute tasks autonomously but have no built-in way to earn revenue, distribute profits, or enforce governance.
+- Existing agent tokenization platforms (e.g., Virtuals) are Web3-native only, making them inaccessible to non-crypto users.
 
 ---
 
@@ -27,7 +38,7 @@ All concepts in Corpus Protocol derive from the Latin root **Corpus (body)**, th
 | Human World | Corpus World | Description |
 |---|---|---|
 | Incorporation | **Corpus Genesis** | Agent corporation establishment process |
-| Shareholder | **Patron** | Owner/investor of a Corpus |
+| Shareholder | **Patron** | Governance-eligible owner of a Corpus (requires minimum Pulse holding) |
 | Board of Directors | **Kernel** | Policy layer (revenue reinvestment ratios, etc.) |
 | Equity | **Pulse** | Equity token (HTS-based) |
 | CEO | **Prime Agent** | Lead agent, autonomous GTM execution entity |
@@ -36,9 +47,11 @@ All concepts in Corpus Protocol derive from the Latin root **Corpus (body)**, th
 
 ## 4. Architecture
 
-### 4.1 Operating Model — Web + Local Agent
+### 4.1 Operating Model — Web + Local Agent (Dual-Chain)
 
-The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the user's local PC. By using the local browser directly, bot detection, session/cookie, and 2FA issues are fundamentally eliminated.
+The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the user's local PC. By using the local browser directly, bot detection, session, and 2FA friction is eliminated.
+
+**Dual-Chain Design:** Hedera handles the internal token economy (Pulse, dividends, governance), while ARC x402 on Base handles inter-Corpus service commerce (USDC nanopayments). No overlap — different chains, different tokens, different purposes.
 
 ```
 ┌───────────────────────────────────────────────────────┐
@@ -56,26 +69,49 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 │ Local Agent ││ Local Agent ││ Local Agent │
 │ (User A)    ││ (User B)    ││ (User C)    │
 │             ││             ││             │
-│ LangGraph   ││ LangGraph   ││ LangGraph   │
+│ Tool-calling││ Tool-calling││ Tool-calling│
+│ Agent Loop  ││ Agent Loop  ││ Agent Loop  │
 │ Stagehand   ││ Stagehand   ││ Stagehand   │
 │ Local Chrome││ Local Chrome││ Local Chrome│
+│ Hedera Kit  ││ Hedera Kit  ││ Hedera Kit  │
 │ x402 Signing││ x402 Signing││ x402 Signing│
 └─────────────┘└─────────────┘└─────────────┘
-                       │
-┌──────────────────────┴────────────────────────────────┐
-│  Hedera Network (Decentralized)                        │
-│  Pulse Token (HTS) · HBAR · x402 (USDC)              │
-└───────────────────────────────────────────────────────┘
+          │                          │
+┌─────────┴──────────┐  ┌───────────┴───────────────────┐
+│ Hedera Network     │  │ Base (EVM)                     │
+│ Pulse Token (HTS)  │  │ x402 (USDC Nanopayments)      │
+│ Governance         │  │ Inter-Corpus Commerce          │
+│                    │  │ USDC Dividend Distribution     │
+└────────────────────┘  └────────────────────────────────┘
 ```
 
 | Layer | Platform | Responsibility |
 |---|---|---|
 | **Corpus Web** | Vercel | UI, API, Corpus registration, Pulse issuance, Commerce Storefront |
 | **Database** | Supabase | Corpus metadata, activity logs, revenue records, commerce queue |
-| **Local Agent** | User PC | Prime Agent execution, GTM (local browser), x402 signing |
-| **Hedera** | Decentralized | Pulse token (HTS), on-chain transaction records |
+| **Local Agent** | User PC | Prime Agent execution, GTM (local browser), Hedera Agent Kit, x402 signing |
+| **Hedera** | Decentralized | Pulse token (HTS), governance (internal economy) |
+| **Base (EVM)** | Decentralized | x402 USDC nanopayments, inter-Corpus commerce, USDC dividend distribution |
 
-### 4.2 Why Local Execution
+### 4.2 Dual-Chain Payment Architecture
+
+| Dimension | Hedera (Internal Economy) | ARC x402 on Base (External Economy) |
+|---|---|---|
+| **Analogy** | Corporate equity cap table & governance | B2B vendor procurement + revenue distribution |
+| **Scope** | Corpus ↔ Patron (shareholders) | Corpus ↔ Corpus (trading partners) + dividends |
+| **Token** | Pulse (HTS) | USDC (EVM) |
+| **Chain** | Hedera | Base |
+| **SDK** | `hedera-agent-kit` (Python) | `x402` (Coinbase) |
+| **Use cases** | Pulse issuance, governance voting | Service purchases, Playbook trading, nanopayments, USDC dividend distribution |
+| **Prize track** | Hedera — AI & Agentic Payments ($6K) + Tokenization ($2.5K) | ARC — Agentic Nanopayments ($6K) |
+
+**Hedera Agent Kit** provides 40+ on-chain tools (originally LangChain-compatible; we extract the schemas for native OpenAI function-calling). No LangChain runtime required.
+
+**Execution modes:**
+- `AUTONOMOUS` — transactions below Kernel approval threshold are executed directly
+- `RETURN_BYTES` — transactions above threshold return unsigned bytes → user approves on Dashboard → agent submits
+
+### 4.3 Why Local Execution
 
 | Problem | Server Execution | Local Execution |
 |---|---|---|
@@ -86,16 +122,17 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 | Fingerprint | Fake → detectable | Real → normal |
 | Infrastructure Cost | Railway $5–20/mo/agent | $0 |
 
-### 4.3 Core Components
+### 4.4 Core Components
 
 | Component | Location | Role | Technology |
 |---|---|---|---|
-| Corpus Genesis Engine | Web | Corpus registration + Pulse token issuance | Next.js, HTS |
-| Patron Registry | Web | Equity structure management, distribution status | Prisma, Supabase, HTS |
+| Corpus Genesis Engine | Web (on-chain) | Corpus registration + Pulse token issuance via CorpusRegistry contract (Creator signs, HTS precompile mints token, 3% launchpad fee to protocol wallet) | Next.js, Solidity, HTS Precompile |
+| Patron Registry | Web | Equity structure management, distribution status | Drizzle, Supabase, HTS |
 | Kernel Policy Engine | Web | Approval thresholds, GTM budget limits, operational policies | Config API |
 | Commerce Storefront | Web | Per-Corpus x402 service endpoint + job queue | Next.js API Routes, Supabase |
-| Prime Agent Runtime | Local | Autonomous GTM execution (local browser-based) | LangGraph, Stagehand |
-| Inter-Corpus Commerce | Local + Web | x402 signing (Local) + Storefront/job queue (Web) | x402, httpx |
+| Prime Agent Runtime | Local | Autonomous GTM execution via tool-calling agent loop | OpenAI SDK, Stagehand, Hedera Agent Kit |
+| Inter-Corpus Commerce | Local + Web | x402 signing on Base (Local) + Storefront/job queue (Web) | x402 (Coinbase), httpx |
+| Internal Economy | Local + Web | Pulse token ops, governance | Hedera Agent Kit |
 
 ---
 
@@ -104,22 +141,26 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 ### 5.1 Corpus Genesis (Incorporation)
 
 ```
-1. Developer inputs product API + description
+1. User inputs product/service description + token config
         │
         ▼
-2. Corpus Genesis executes
-   ├── Issue Pulse (equity) token via HTS
+2. Corpus Genesis executes (Creator signs on-chain tx)
+   ├── CorpusRegistry.createCorpus() called
+   │   ├── HTS Precompile mints Pulse token (contract = treasury)
+   │   ├── 3% launchpad fee → Corpus Protocol wallet
+   │   └── 97% → Creator wallet
    ├── Configure Patron equity structure
-   │   - Developer: X%
+   │   - Creator: X%
    │   - Early Investors: Y%
    │   - Agent Treasury: Z%
    ├── Set Kernel policies
    │   - Approval threshold (e.g., transactions > $10 require approval)
    │   - GTM budget limits, operational parameters
+   ├── CorpusNameService.registerName() — immutable agent identity
    ├── Prime Agent configuration
    │   - Persona, target audience, tone & voice
    │   - GTM target channels (X, LinkedIn, Reddit, etc.)
-   └── Corpus creation complete
+   └── Corpus creation complete + API key issued
         │
         ▼
 3. User runs Prime Agent locally
@@ -127,7 +168,43 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
    $ corpus-agent start --corpus-id 0.0.111
 ```
 
-### 5.2 GTM Autonomous Execution (Human-in-the-Loop)
+**Launchpad Fee:** 3% of total Pulse supply is sent to the Corpus Protocol wallet on every Genesis as a platform fee. This is enforced on-chain in the CorpusRegistry contract (`LAUNCHPAD_FEE_BPS = 300`).
+
+### 5.2 Pulse Trading & Patron Registration
+
+Pulse and Patron are intentionally separated to balance open market access with governance integrity.
+
+#### Buy Pulse (Open Market)
+
+Anyone with a connected wallet can buy/sell Pulse tokens freely. Pulse holders receive USDC dividend distributions proportional to their holdings.
+
+#### Become Patron (Governance Registration)
+
+Patron status grants governance rights (Kernel voting, policy proposals) but requires a **minimum Pulse holding threshold**. This prevents spam governance while keeping token trading open.
+
+**Minimum threshold:** `totalSupply × 0.1%` (configurable per Corpus via Kernel policy, stored as `minPatronPulse`)
+
+```
+Wallet connected → Buy Pulse (free market)
+                       ↓
+               Holding ≥ minPatronPulse?
+                  No → "Become Patron" disabled (tooltip: "N Pulse 이상 필요")
+                  Yes → "Become Patron" enabled
+                       ↓
+               Click → Patron registration (on-chain record)
+                       ↓
+               Governance rights activated
+                       ↓
+               Holding drops below threshold?
+                  → Patron status auto-revoked
+```
+
+| Action | Condition | Rights |
+|---|---|---|
+| **Buy Pulse** | Wallet connected | USDC dividends |
+| **Become Patron** | Pulse holding ≥ `minPatronPulse` | Dividends + governance voting + Kernel policy proposals |
+
+### 5.3 GTM Autonomous Execution (Human-in-the-Loop)
 
 The Prime Agent autonomously executes GTM on the user's local PC using Stagehand + local Chrome, with important decisions requiring user approval.
 
@@ -149,7 +226,7 @@ The Prime Agent autonomously executes GTM on the user's local PC using Stagehand
        └── Spending above threshold
 ```
 
-### 5.3 Approval Flow
+### 5.4 Approval Flow
 
 ```
 Prime Agent makes decision
@@ -158,29 +235,71 @@ Prime Agent makes decision
     │
     └── Above threshold → Request approval
         ├── Send approval request via Web API → Dashboard notification
-        ├── User approves on Dashboard → Agent receives result via polling → Execute
-        └── User rejects → Suggest alternative
+        ├── Approved on Dashboard → Agent receives result via polling → Execute
+        └── Rejected → Suggest alternative
 ```
 
 ---
 
-## 6. Inter-Corpus Commerce
+## 6. Payment Architecture — Dual-Chain
 
-Inter-Corpus autonomous transactions form an agent economy ecosystem. Since Local Agents cannot communicate directly (NAT/firewall), **Web serves as each Corpus's storefront (proxy)**. From Agent A's perspective, it operates as a genuine x402 protocol.
+### 6.1 Hedera — Internal Economy (Corpus ↔ Patron)
 
-### 6.1 Storefront Model
+Managed via **Hedera Agent Kit** tools within the Prime Agent's tool-calling loop. The agent autonomously executes on-chain operations using its Hedera operator key.
+
+| Operation | Trigger | Where | Mechanism |
+|---|---|---|---|
+| Pulse token issuance | Corpus Genesis | On-chain (CorpusRegistry) | HTS Precompile via `createCorpus()` — Creator signs, 3% fee to protocol wallet |
+| Patron equity distribution | Genesis / new Patron | On-chain | Creator distributes from their 97% allocation |
+| Governance voting weight | Kernel vote | Local Agent / Web | HTS `TokenBalanceQuery` via `get_token_balance` |
+
+### 6.1.1 Revenue Distribution (USDC)
+
+Revenue from inter-Corpus commerce (x402) is received in USDC on Base. Dividends are distributed in USDC directly — no currency conversion required.
+
+**Autonomous vs Approval:**
+```
+Revenue $1.00 USDC received (via x402 on Base)
+    │
+    ├── Below threshold → AUTONOMOUS mode
+    │   Agent distributes USDC directly:
+    │   ├── Creator   (60%): 0.60 USDC → 0x_CREATOR
+    │   ├── Investor  (25%): 0.25 USDC → 0x_INVESTOR
+    │   └── Treasury  (15%): 0.15 USDC → 0x_TREASURY
+    │
+    └── Above threshold → RETURN_BYTES mode
+        Agent returns unsigned tx → Dashboard approval → submit
+```
+
+### 6.2 ARC x402 — External Economy (Corpus ↔ Corpus)
+
+Inter-Corpus autonomous transactions form an agent economy ecosystem. Since Local Agents cannot communicate directly (NAT/firewall), **Web serves as each Corpus's storefront (proxy)**. From Agent A's perspective, it operates as a genuine x402 protocol on **Base (USDC)**.
+
+#### Service Catalog
+
+Each Corpus can register services on its storefront. The agent autonomously discovers, evaluates, and purchases services to improve GTM performance.
+
+| Service Type | Example | Price Range | Description |
+|---|---|---|---|
+| **Image Generation** | Post visuals, diagrams | $0.03–0.10 | Visual content for social posts |
+| **Translation** | Multi-language marketing | $0.02–0.05 | Expand to non-English audiences |
+| **Market Analysis** | Competitor/trend reports | $0.05–0.20 | Data-driven strategy inputs |
+| **Copywriting** | Landing page / ad copy | $0.05–0.15 | Conversion-optimized text |
+| **GTM Playbook** | Proven strategy packages | $0.10–0.50 | Validated GTM strategies (see 6.3) |
+
+#### Storefront Model
 
 Each Corpus has a public service endpoint on Web: `/api/corpus/:id/service`
 
 Information registered at Corpus creation:
-- Service description (e.g., "Landing page image generation")
-- Price (e.g., $0.05/request)
-- Wallet address (for USDC receipt)
-- Supported chains
+- Service type & description
+- Price (per request, in USDC)
+- Wallet address (Base, for USDC receipt)
+- Supported service types
 
 Web can **immediately return a 402 response** based on this information. No need to wait for Agent B.
 
-### 6.2 x402 Payment Flow
+#### x402 Payment Flow (USDC on Base)
 
 ```
 Local Agent A                  Web (Storefront)              Local Agent B
@@ -189,10 +308,13 @@ Local Agent A                  Web (Storefront)              Local Agent B
      ├── GET /api/corpus/B/service→│                           │
      │                            │                           │
      │  2. Immediate 402 response  │                           │
-     │←── 402 (price, wallet, chain)│ (based on B's registered info)
+     │←── 402 (price, token: USDC, │ (based on B's registered info)
+     │         network: base,      │
+     │         payee: 0x...)       │
      │                            │                           │
-     │  3. x402 signature + retry  │                           │
-     ├── POST + PAYMENT-SIGNATURE→│                           │
+     │  3. EIP-3009 signature      │                           │
+     │     (USDC on Base, gasless) │                           │
+     ├── POST + X-PAYMENT header──→│                           │
      │                            │  4. Verify payment signature│
      │                            │  5. Save to job queue (Supabase)
      │                            │                           │
@@ -206,17 +328,77 @@ Local Agent A                  Web (Storefront)              Local Agent B
      │                            │  8. Save result to queue   │
      │                            │                           │
      │  9. Poll for result         │                           │
-     │── GET /commerce/result ───→│                           │
+     │── GET /jobs/:id/result ───→│                           │
      │←── Return service result ───│                           │
 ```
 
 **Key points:**
-- Steps 1–3: From Agent A's perspective, **genuine x402 protocol** (HTTP request → 402 → sign → retry)
+- Steps 1–3: From Agent A's perspective, **genuine x402 protocol** (HTTP request → 402 → EIP-3009 sign → retry)
 - Steps 4–5: Web verifies payment and saves to job queue
 - Steps 6–8: Agent B polls for job → performs task → sends result (async)
 - Step 9: Agent A polls for result
+- **Settlement: USDC on Base** — not Hedera (clean separation from internal economy)
 
 > **Web never sends requests to Agents.** Web immediately returns the 402 response; actual task execution/result retrieval happens via each Agent's polling.
+
+### 6.3 GTM Playbook Commerce
+
+Playbooks are **validated GTM strategy packages** that one Corpus has proven effective and sells to others via x402. Unlike one-shot services (image, translation), a Playbook **reshapes the agent's own strategy** — the agent pays to evolve.
+
+#### Playbook Structure
+
+```json
+{
+  "name": "Dev Community Growth Playbook",
+  "version": "1.0",
+  "channel": "X",
+  "target": "developers",
+  "schedule": {
+    "posts_per_day": 3,
+    "best_hours_utc": [14, 18, 22],
+    "thread_days": ["tue", "thu"]
+  },
+  "templates": [
+    {
+      "type": "hook",
+      "pattern": "Most {audience} don't know that {insight}. Here's why it matters:",
+      "usage": "thread opener"
+    },
+    {
+      "type": "cta",
+      "pattern": "Try it yourself → {product_url}",
+      "usage": "thread closer"
+    }
+  ],
+  "hashtags": ["#buildinpublic", "#devtools", "#ai"],
+  "tactics": [
+    "reply to trending dev threads within 30min",
+    "quote-tweet industry news with product angle"
+  ]
+}
+```
+
+#### Agent Playbook Consumption Flow
+
+```
+Agent A (new Corpus, low engagement)
+    │
+    │ LLM judges: "7 posts, 0 engagement. Strategy needs improvement."
+    │
+    ├── discover_services(category="playbook", target="developers")
+    ├── purchase_service("corpus_B", {type: "playbook"})  ← x402 $0.30 USDC
+    │
+    ▼
+    Agent applies Playbook:
+    ├── Update posting schedule (3/day at optimal hours)
+    ├── Load content templates (hook/CTA patterns)
+    ├── Apply hashtag strategy
+    └── Adjust tactics (reply timing, quote-tweet patterns)
+    
+    → Next GTM cycle uses Playbook-informed strategy
+```
+
+**Demo impact:** The agent doesn't just execute tasks — it **spends money to learn and improve its own strategy**. Self-evolving autonomous agent.
 
 ---
 
@@ -226,7 +408,7 @@ Local Agent A                  Web (Storefront)              Local Agent B
 |---|---|---|
 | **Stripe Atlas** | Human incorporation | Legal/tax automation |
 | **Virtuals** | Agent tokenization | Web3-only, speculative |
-| **Corpus Protocol** | Agent incorporation + autonomous GTM | Web2 developer accessible, real revenue structure, local execution |
+| **Corpus Protocol** | Agent incorporation + autonomous GTM | Accessible to anyone, real revenue structure, local execution |
 
 ---
 
@@ -236,28 +418,35 @@ Local Agent A                  Web (Storefront)              Local Agent B
 
 | Time | Action |
 |---|---|
-| 0:00 - 0:30 | Enter product API key + configure GTM target channels |
-| 0:30 - 1:00 | Create Corpus (verify Pulse token on-chain issuance) |
-| 1:00 - 1:30 | Set Patron equity structure + approval thresholds |
-| 1:30 - 2:00 | `corpus-agent start` → Prime Agent requests first posting approval → Approve → Post to X via local browser |
-| 2:00 - 2:30 | Agent performs autonomous research + mention handling via local browser (auto) |
-| 2:30 - 3:00 | Inter-Corpus x402 transaction → Above threshold → Approve → Payment via Web relay |
+| 0:00 - 0:30 | Enter product + configure GTM channels → Creator signs `createCorpus` tx |
+| 0:30 - 1:00 | Pulse token minted on-chain via HTS precompile → 97% to Creator, 3% launchpad fee to protocol wallet **(Hedera Tokenization)** |
+| 1:00 - 1:30 | `corpus-agent start` → Agent requests first posting approval → Approve → Post to X via local Chrome |
+| 1:30 - 2:00 | Agent autonomously decides: "need an image" → discovers Corpus B service → x402 $0.05 USDC auto-payment on Base → image received → posts with image **(ARC Nanopayments)** |
+| 2:00 - 2:30 | Agent judges low engagement → purchases GTM Playbook via x402 → applies new strategy → next post uses Playbook templates **(ARC — self-evolving agent)** |
+| 2:30 - 3:00 | Revenue from sold service → Agent autonomously distributes USDC dividends to Patrons **(Revenue Distribution)** |
 
-**Judge impact:** The agent operates the user's actual browser for GTM while humans decide on important matters. Autonomous marketing on any platform without API integration. No bot detection issues since it runs locally.
+**Judge impact:**
+- **Hedera judges:** Agent autonomously manages a token economy — issues equity (Pulse), handles governance on Hedera
+- **ARC judges:** Agent-to-agent HTTP 402 nanopayments (USDC on Base) — service purchases + Playbook trading + USDC dividend distribution, self-evolving strategy
+- **Both:** The agent operates the user's actual browser, makes autonomous payment decisions with human-in-the-loop for high-value transactions
 
 ---
 
 ## 9. Prize Strategy
 
-| Track | Rationale | Target |
-|---|---|---|
-| **Hedera — AI & Agentic Payments** | Prime Agent autonomous payments + Agent Kit utilization | $6K |
-| **Hedera — Tokenization** | Pulse token = HTS tokenization, Patron equity structure | $2.5K |
-| **ARC — Agentic Nanopayments** | Inter-Corpus x402 transactions, agent-to-agent USDC nanopayments | $6K |
-| **World — Agent Kit** | World ID trust layer for Prime Agent | $8K |
-| **World — World ID 4.0** | Patron 1-person-1-vote, Kernel governance uniqueness | $8K |
+| Track | What We Show | No Overlap With | Target |
+|---|---|---|---|
+| **Hedera — AI & Agentic Payments** | Hedera Agent Kit autonomous Pulse token operations, governance, equity management | ARC (different chain, different token, different purpose) | $6K |
+| **Hedera — Tokenization** | Pulse token (HTS), Patron equity structure, governance voting weight | ARC (Pulse is internal equity, not commerce) | $2.5K |
+| **ARC — Agentic Nanopayments** | x402 HTTP 402 protocol, USDC on Base, inter-Corpus service marketplace + Playbook trading + USDC dividend distribution | Hedera (different chain, different token, different purpose) | $6K |
+| **World — Agent Kit** | World ID trust layer for Prime Agent | — | $8K |
+| **World — World ID 4.0** | Patron 1-person-1-vote, Kernel governance uniqueness | — | $8K |
 
 **Maximum Target: $30.5K**
+
+**Clean separation pitch:**
+- Hedera = "The agent's **equity cap table and governance**" (Pulse on Hedera)
+- ARC = "The agent's **procurement department and bank account**" (USDC on Base via x402)
 
 ---
 
@@ -265,16 +454,16 @@ Local Agent A                  Web (Storefront)              Local Agent B
 
 ### 10.1 Launchpad (`/launch`)
 
-Frontend for Corpus Genesis. The entry point for developers to establish an agent corporation.
+Frontend for Corpus Genesis. The entry point for users to establish an agent corporation.
 
 | Section | Functionality |
 |---|---|
-| Product Input | API key/endpoint input, product description, category selection |
+| Product Input | Product name, description, category selection |
 | Pulse Configuration | Token name/symbol setup, total supply, initial price |
-| Patron Structure | Equity distribution slider (Developer / Early Investors / Treasury) |
+| Patron Structure | Equity distribution slider (Creator / Early Investors / Treasury) |
 | Kernel Policy | Approval thresholds (amount, action type), GTM budget limits, operational parameters |
 | Prime Agent Setup | Persona settings, target audience, tone & voice, GTM target channels (X, LinkedIn, Reddit, etc.) |
-| Review & Deploy | Settings summary → On-chain transaction signing → Corpus creation → CLI installation guide |
+| Review & Deploy | Settings summary → On-chain transaction signing → Corpus creation → Prime Agent installation guide |
 
 ### 10.2 Explore (`/explore`)
 
@@ -284,7 +473,7 @@ Page for browsing created Corpuses.
 |---|---|
 | Corpus List | Card-style Corpus list (logo, name, category, status) |
 | Filter & Search | By category, newest first, search |
-| Corpus Detail (`/corpus/:id`) | Product description, Prime Agent activity log, Patron list, revenue history |
+| Corpus Detail (`/explore/:id`) | Product description, Prime Agent activity log, Patron list, revenue history |
 
 ### 10.3 Leaderboard (`/leaderboard`)
 
@@ -328,7 +517,7 @@ Portfolio management hub for Patrons (investors).
 - [ ] **Explore** — Corpus list + detail page
 - [ ] **Patron Dashboard** — Portfolio & approval queue & activity feed
 - [ ] **Prime Agent CLI** — `pip install corpus-agent` → `corpus-agent start` for local execution
-- [ ] **Prime Agent** — Stagehand + local Chrome-based X auto GTM (posting, research, mention handling)
+- [ ] **Prime Agent GTM** — Stagehand + local Chrome-based X auto GTM (posting, research, mention handling)
 - [ ] **Wallet Connection** — Multi-wallet integration via Dynamic (HashPack, MetaMask, WalletConnect)
 
 ### Should Have
@@ -360,8 +549,8 @@ corpus/
 │       └── Commerce Storefront (x402)
 │
 └── packages/
-    └── prime-agent/             ← Python CLI (User PC)
-        ├── LangGraph (Brain)
+    └── prime-agent/             ← Python (User PC)
+        ├── OpenAI Tool-Calling Agent Loop (Brain)
         ├── Stagehand + Local Chrome (Hands)
         └── x402 Signing (Payments)
 ```
@@ -379,8 +568,8 @@ corpus/
           ▼              ▼              ▼
    ┌────────────┐ ┌────────────┐ ┌────────────┐
    │ Local Agent│ │ Local Agent│ │ Local Agent│
-   │ Python CLI │ │ Python CLI │ │ Python CLI │
-   │ LangGraph  │ │ LangGraph  │ │ LangGraph  │
+   │ Python     │ │ Python     │ │ Python     │
+   │ OpenAI SDK │ │ OpenAI SDK │ │ OpenAI SDK │
    │ Stagehand  │ │ Stagehand  │ │ Stagehand  │
    │ Chrome     │ │ Chrome     │ │ Chrome     │
    └────────────┘ └────────────┘ └────────────┘
@@ -390,7 +579,7 @@ corpus/
 |---|---|---|---|
 | **Web** | Next.js 15 | Vercel | Free–Pro |
 | **DB** | Supabase (PostgreSQL) | Supabase Cloud | Free–Pro |
-| **Prime Agent** | Python CLI | User PC | $0 |
+| **Prime Agent** | Python | User PC (local execution) | $0 |
 
 ---
 
@@ -409,7 +598,6 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `@dynamic-labs/sdk-react-core` | Dynamic wallet SDK | Multi-wallet connection (HashPack, MetaMask, WalletConnect) |
 | `@dynamic-labs/wallet-connect` | WalletConnect connector | WalletConnect protocol support |
 | `recharts` | Pulse charts, revenue graphs | Dashboard/Leaderboard |
-| `d3-force` | Commerce Graph node visualization | Ecosystem page |
 | `framer-motion` | Animations | Launchpad step transitions |
 
 #### Backend / Database
@@ -417,9 +605,8 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | Package | Purpose | Notes |
 |---|---|---|
 | Next.js API Routes | REST API | Called by Local Agent + Frontend |
-| `@supabase/supabase-js` | Supabase client | PostgreSQL + Realtime + Auth |
-| `prisma` | ORM | Type-safe, PostgreSQL support, schema-based migrations |
-| `@prisma/client` | Prisma client | Auto-generated types, Supabase connection |
+| `drizzle-orm` + `pg` | ORM + PostgreSQL driver | Type-safe queries, direct connection to Supabase PostgreSQL |
+| `drizzle-kit` | Migration tool | Schema push, migration generation |
 | `zod` | Input validation | API request schemas |
 
 #### Web API Endpoints
@@ -431,6 +618,9 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `/api/corpus/:id/activity` | POST | Local Agent | Agent activity reporting |
 | `/api/corpus/:id/revenue` | POST | Local Agent | Revenue reporting |
 | `/api/corpus/:id/status` | PATCH | Local Agent | Agent status (online/offline) |
+| `/api/corpus/:id/patrons` | GET | Web UI | Patron list for Corpus |
+| `/api/corpus/:id/patrons` | POST | Web UI | Register as Patron (requires min Pulse holding) |
+| `/api/corpus/:id/patrons` | DELETE | Web UI | Withdraw Patron status |
 | `/api/corpus/:id/approvals` | GET | Web UI / Local Agent | Pending approval list |
 | `/api/corpus/:id/approvals/:id` | PATCH | Web UI | Approve/reject |
 | `/api/leaderboard` | GET | Web UI | Ranking data |
@@ -442,9 +632,9 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 
 ---
 
-### 12.3 packages/prime-agent — Python CLI (User PC)
+### 12.3 packages/prime-agent — Prime Agent (User PC)
 
-The Prime Agent running locally on the user's machine. Installed via `pip install`, executed via CLI.
+The Prime Agent running locally on the user's machine. Installed via `pip install`, executed locally.
 
 #### Why Local Execution
 
@@ -460,26 +650,63 @@ The Prime Agent running locally on the user's machine. Installed via `pip instal
 
 | Criteria | Reason for Python |
 |---|---|
-| LangGraph | Python is a **first-class citizen** — docs/examples/features far ahead of JS |
-| AI Ecosystem | LangChain, OpenAI, agent-related libraries are all Python-first |
+| Hedera Agent Kit | Python SDK (`hedera-agent-kit`) provides 40+ tools as first-class citizen |
+| AI Ecosystem | OpenAI, agent-related libraries are Python-first |
 | Stagehand | Python SDK supported (`stagehand` package) |
 | Community | AI agent debugging/references concentrated in Python |
+
+#### Architecture: Tool-Calling Agent Loop (No LangChain)
+
+The Prime Agent uses a **ReAct-style tool-calling loop** powered by the OpenAI SDK's native function calling. No LangChain/LangGraph dependency — the LLM autonomously decides which tools to invoke based on context.
+
+```
+┌─────────────────────────────────────────┐
+│ System Prompt (persona, config, context)│
+└──────────────────┬──────────────────────┘
+                   │
+          ┌────────▼────────┐
+          │   LLM decides   │◄──────────────┐
+          │  next action(s) │               │
+          └────────┬────────┘               │
+                   │ tool_calls             │ tool_results
+          ┌────────▼────────┐               │
+          │  Execute tools  │───────────────┘
+          └─────────────────┘
+          (no tool_calls → cycle ends)
+```
+
+**Why not LangChain/LangGraph:**
+- The workflow is a single autonomous agent choosing tools — `while True` + `tool_calls` is sufficient
+- LangGraph adds value for multi-agent orchestration with sub-graphs, not needed here
+- 3 fewer dependencies, half the code, 10x easier debugging
+- Hedera Agent Kit tool schemas are extracted and converted to OpenAI function-calling format
+
+#### Tool Categories
+
+| Category | Tools | SDK |
+|---|---|---|
+| **Browser (GTM)** | `search_web`, `post_to_x`, `check_x_mentions`, `reply_on_x`, `browse_page` | Stagehand |
+| **Hedera (Internal Economy)** | `create_token`, `airdrop_token`, `get_token_balance` | Hedera Agent Kit |
+| **Commerce (External Economy)** | `discover_services`, `purchase_service`, `sign_x402_payment` | x402 + httpx |
+| **Web API (Reporting)** | `report_activity`, `request_approval`, `check_approval` | httpx |
+| **Internal** | `get_content_history`, `get_schedule_status`, `save_research_notes` | SQLite |
 
 #### Packages
 
 | Package | Purpose |
 |---|---|
-| `langgraph` | Multi-step GTM workflows |
-| `langchain-core` | LLM abstraction |
-| `langchain-openai` | OpenAI integration |
+| `openai` | LLM tool-calling (direct SDK, no LangChain wrapper) |
+| `hedera-agent-kit` | Hedera Agent Kit — 40+ on-chain tools (Pulse, HBAR, governance) |
 | `stagehand` | Local Chrome browser automation — X/LinkedIn/Reddit posting, research, mention handling |
 | `httpx` | Async HTTP (Web API communication, x402 payments, commerce polling) |
-| `pydantic` | Data validation |
+| `x402` | x402 payment signing (EIP-3009, USDC on Base) |
+| `pydantic` | Data validation + settings |
 | `click` | CLI interface |
 | `rich` | Terminal UI (status display, logs) |
 | `sqlite3` | Local DB (Python built-in, no installation required) |
 
 > **No external queue/cron needed** — As a single-process agent, SQLite tables + `asyncio` handle all queuing and scheduling.
+> **No LangChain needed** — OpenAI native tool-calling + Hedera Agent Kit tool schemas provide full agentic capability.
 
 #### Installation & Execution
 
@@ -507,19 +734,24 @@ User PC (corpus-agent start)
 │   ├── Health Reporter — Periodically reports online status to Web
 │   ├── Local SQLite DB — Schedule state, queue, activity log cache
 │   └── Scheduler (asyncio + SQLite)
-│       ├── Every 5 min: Check mentions/replies
-│       ├── Every 4 hours: Generate content & post
-│       └── Every 12 hours: Market research
+│       ├── Every 5 min: Agent Loop cycle (LLM decides what to do)
+│       ├── Every 60 sec: Health heartbeat
+│       ├── Every 10 sec: Polling (approvals, jobs)
 │       └── (Stores last execution time in SQLite → prevents duplicates on restart)
 │
-├── LangGraph Workflow
-│   ├── Research Node ──── Stagehand → Web research via local Chrome
-│   ├── Content Node ───── LLM → Generate posts/replies
-│   ├── Social Node ────── Stagehand → Post/respond on X/LinkedIn/Reddit via local Chrome
-│   └── Commerce Node ──── Web Storefront x402 → Sign → Agent-to-agent USDC payments
+├── Tool-Calling Agent Loop (per cycle)
+│   ├── LLM receives: system prompt + context (today's activity, pending mentions, etc.)
+│   ├── LLM decides: which tools to call, in what order
+│   ├── Available tools:
+│   │   ├── Browser ──── Stagehand → Web research, social posting via local Chrome
+│   │   ├── Hedera ───── Agent Kit → Pulse ops, governance
+│   │   ├── Commerce ─── x402 → Inter-Corpus service/Playbook purchases (USDC on Base)
+│   │   └── Web API ──── httpx → Activity reporting, approval requests
+│   └── Loop ends when LLM returns no tool_calls
 │
 └── Stagehand Browser Session
     └── Local Chrome (leverages user's existing login sessions)
+```
 
 #### Local DB (SQLite)
 
@@ -533,7 +765,7 @@ Uses Python built-in `sqlite3`. No additional installation required. Single file
 | `commerce_queue` | Commerce transaction status (pending/processing/done) |
 | `approval_cache` | Local cache for approval requests/results |
 | `corpus_config` | Corpus configuration cache → avoids redundant Web API calls |
-```
+| `playbooks` | Purchased Playbook cache → applied to agent strategy |
 
 #### Stagehand Browser GTM: Any Platform Without APIs
 
@@ -594,7 +826,7 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 1. User configures Corpus + selects GTM channels on Launchpad
 2. Web issues Pulse token via HTS (on-chain)
 3. Web saves Corpus to Supabase + issues API Key
-4. CLI installation & execution instructions displayed to user
+4. Prime Agent installation & execution instructions displayed to user
 5. User runs corpus-agent start locally
 6. Local Agent downloads Corpus configuration from Web API
 7. Local Agent begins autonomous GTM with Stagehand + local Chrome
@@ -603,40 +835,48 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 
 ---
 
-### 12.4 Hedera (On-chain)
+### 12.4 Hedera — Internal Economy (On-chain)
 
 | Package | Location | Purpose | Track |
 |---|---|---|---|
-| `@hashgraph/sdk` | Web | HTS token issuance/transfer, account management | Tokenization |
-| `hedera-sdk` (Python) | Local Agent | On-chain transactions from agent | AI & Agentic Payments |
+| HTS Precompile (`0x167`) | CorpusRegistry contract | Pulse token creation during Genesis (3% fee to protocol wallet) | Tokenization |
+| `hedera-agent-kit` (Python) | Local Agent | Token balance queries, governance | Tokenization |
 
-**HTS Usage (Tokenization Track):**
-- Pulse token issuance — Executed on Web during Genesis
-- Patron equity distribution — Token transfer on Web
-- Revenue distribution — Local Agent reports revenue → Web executes scheduled transaction
+**Token Creation:** Handled on-chain inside `CorpusRegistry.createCorpus()` via HTS precompile. Creator signs the transaction, contract mints the token, distributes 97% to Creator and 3% to Corpus Protocol wallet as launchpad fee.
 
-### 12.5 ARC (Agentic Payments)
+**Hedera Agent Kit Usage (Local Agent):**
+
+| Tool | Operation | Track |
+|---|---|---|
+| `get_token_balance` | Governance voting weight | Tokenization |
+
+> Revenue dividends are distributed in USDC on Base (see Section 6.1.1), not HBAR.
+
+### 12.5 ARC x402 — External Economy (Agentic Nanopayments)
 
 | Package | Location | Purpose | Track |
 |---|---|---|---|
-| x402 Protocol | Local Agent | HTTP 402-based autonomous agent payment signing | Agentic Nanopayments |
-| Commerce Relay | Web | Agent-to-agent payment message relay | Agentic Nanopayments |
+| `x402` / `x402-fetch` | Local Agent | HTTP 402 payment signing (EIP-3009, USDC on Base) | Agentic Nanopayments |
+| Commerce Storefront | Web | Per-Corpus service endpoint, 402 responses, job queue relay | Agentic Nanopayments |
 
-**Inter-Corpus Payment Flow (Web Storefront — Genuine x402):**
+**Service types available via x402:**
+- One-shot services: image generation, translation, market analysis, copywriting
+- **GTM Playbooks**: validated strategy packages that change agent behavior (see Section 6.3)
+
+**Inter-Corpus Payment Flow (USDC on Base):**
 ```
 Local Agent A (service requester)
     → GET /api/corpus/B/service (direct HTTP request to Web)
-    ← 402 response (Web immediately returns based on B's registered info)
-    → Agent A signs EIP-3009 (local, gasless)
-    → POST /api/corpus/B/service + PAYMENT-SIGNATURE header
+    ← 402 response {price: 0.05, token: USDC, network: base, payee: 0x...}
+    → Agent A signs EIP-3009 (local, gasless, USDC on Base)
+    → POST /api/corpus/B/service + X-PAYMENT header
     → Web verifies payment → saves to job queue
     → Agent B polls → receives job → performs service
     → Agent B POSTs result → saved to queue
     → Agent A polls → receives result
-    → Both Agents report transaction result to Web API
 ```
 
-> **From Agent A's perspective, it's genuine x402.** Web immediately returns the 402 response; the only async part is the actual task execution.
+> **Clean separation:** Hedera handles Pulse equity & governance. ARC x402 handles all USDC flows — inter-Corpus commerce + dividend distribution. Different chains, different tokens, different purposes.
 
 ### 12.6 World (Identity & Trust)
 
@@ -655,7 +895,7 @@ Local Agent A (service requester)
 |---|---|---|
 | **apps/web** | Vercel | Optimized for Next.js, serverless API Routes, auto-deploy |
 | **Database** | Supabase | Managed PostgreSQL, Realtime subscriptions, Auth, free tier |
-| **Prime Agent** | User PC | `pip install corpus-agent`, leverages local Chrome |
+| **Prime Agent** | User PC (local execution) | `pip install corpus-agent`, leverages local Chrome |
 
 ### 12.8 Environment Variables
 
@@ -676,6 +916,10 @@ HEDERA_NETWORK=testnet
 WORLD_APP_ID=
 WORLD_ACTION_ID=
 
+# Smart Contracts (Hedera Testnet)
+NEXT_PUBLIC_REGISTRY_ADDRESS=
+NEXT_PUBLIC_NAME_SERVICE_ADDRESS=
+
 # Dynamic (Wallet Connection)
 NEXT_PUBLIC_DYNAMIC_ENV_ID=
 ```
@@ -687,11 +931,14 @@ NEXT_PUBLIC_DYNAMIC_ENV_ID=
 CORPUS_API_URL=https://corpus.app
 CORPUS_API_KEY=           # Issued at Corpus creation
 
-# OpenAI (used by LangGraph + Stagehand)
+# OpenAI (used by agent loop + Stagehand)
 OPENAI_API_KEY=
 
-# Hedera
+# Hedera (Internal Economy — Pulse, dividends, governance)
 HEDERA_ACCOUNT_ID=
 HEDERA_PRIVATE_KEY=
 HEDERA_NETWORK=testnet
+
+# Base / x402 (External Economy — Inter-Corpus commerce, USDC)
+BASE_WALLET_PRIVATE_KEY=  # EIP-3009 signing for USDC payments
 ```
