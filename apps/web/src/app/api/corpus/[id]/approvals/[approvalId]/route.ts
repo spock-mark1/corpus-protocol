@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { cppCorpus, cppApprovals } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { cppCorpus, cppApprovals, cppPatrons } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { verifyWorldIdProof, type WorldIdProof } from "@/lib/world-id";
 
 // PATCH /api/corpus/:id/approvals/:approvalId — Approve/reject
 export async function PATCH(
@@ -34,7 +35,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, decidedBy } = body;
+    const { status, decidedBy, worldIdProof } = body;
 
     if (!status || !["approved", "rejected"].includes(status)) {
       return Response.json(
@@ -43,12 +44,56 @@ export async function PATCH(
       );
     }
 
+    // World ID verification for human-in-the-loop approval decisions
+    if (!worldIdProof) {
+      return Response.json(
+        { error: "World ID verification required for approval decisions" },
+        { status: 400 }
+      );
+    }
+
+    const worldIdResult = await verifyWorldIdProof(
+      worldIdProof as WorldIdProof,
+      `approve-${id}-${approvalId}`,
+      decidedBy ?? ""
+    );
+
+    if (!worldIdResult.success) {
+      return Response.json(
+        { error: worldIdResult.error ?? "World ID verification failed" },
+        { status: 403 }
+      );
+    }
+
+    // Verify the caller is an active Patron (Creator or Investor) of this Corpus
+    if (decidedBy) {
+      const patron = await db
+        .select()
+        .from(cppPatrons)
+        .where(
+          and(
+            eq(cppPatrons.corpusId, id),
+            eq(cppPatrons.walletAddress, decidedBy),
+            eq(cppPatrons.status, "active")
+          )
+        )
+        .limit(1)
+        .then((r) => r[0] ?? null);
+
+      if (!patron) {
+        return Response.json(
+          { error: "Only active Patrons can approve or reject decisions" },
+          { status: 403 }
+        );
+      }
+    }
+
     const [approval] = await db
       .update(cppApprovals)
       .set({
         status,
         decidedAt: new Date(),
-        decidedBy,
+        decidedBy: decidedBy ?? worldIdResult.nullifier_hash,
       })
       .where(eq(cppApprovals.id, approvalId))
       .returning();

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { WalletGate } from "@/components/wallet-gate";
+import { WalletGate, useWallet } from "@/components/wallet-gate";
+import { WorldIdVerify } from "@/components/world-id-verify";
 
 interface Props {
   stats: {
@@ -32,6 +33,27 @@ interface Props {
     status: "online" | "offline";
     lastActive: string;
   }[];
+  revenueStreams: {
+    corpusId: string;
+    corpusName: string;
+    totalRevenue: number;
+    creatorShare: number;
+    investorShare: number;
+    treasuryShare: number;
+    bySource: Record<string, number>;
+    recentTx: { amount: number; source: string; currency: string; date: string }[];
+  }[];
+  corpusManagement: {
+    id: string;
+    name: string;
+    status: string;
+    approvalThreshold: number;
+    gtmBudget: number;
+    channels: string[];
+    hederaTokenId: string;
+    totalSupply: number;
+    pulsePrice: number;
+  }[];
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -52,34 +74,37 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
-export function DashboardClient({ stats, approvals: initialApprovals, activities, agents }: Props) {
+export function DashboardClient(props: Props) {
   return (
     <WalletGate
       title="Connect Wallet to Access Dashboard"
       description="Your patron dashboard shows your portfolio, pending approvals, and agent activity. Connect your wallet to view your Corpus holdings."
     >
-      <DashboardContent stats={stats} approvals={initialApprovals} activities={activities} agents={agents} />
+      <DashboardContent {...props} />
     </WalletGate>
   );
 }
 
-function DashboardContent({ stats, approvals: initialApprovals, activities, agents }: Props) {
+function DashboardContent({ stats, approvals: initialApprovals, activities, agents, revenueStreams, corpusManagement }: Props) {
   const [approvals, setApprovals] = useState(initialApprovals);
+  const { address } = useWallet();
 
-  async function handleDecision(id: string, corpusId: string, status: "approved" | "rejected") {
-    await fetch(`/api/corpus/${corpusId}/approvals/${id}`, {
+  async function handleDecision(id: string, corpusId: string, status: "approved" | "rejected", worldIdProof: unknown) {
+    const res = await fetch(`/api/corpus/${corpusId}/approvals/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, decidedBy: address, worldIdProof }),
     });
-    setApprovals((prev) => prev.filter((a) => a.id !== id));
+    if (res.ok) {
+      setApprovals((prev) => prev.filter((a) => a.id !== id));
+    }
   }
 
   const PORTFOLIO_STATS = [
-    { label: "Total Value", value: stats.totalValue, delta: null },
-    { label: "Active Corpus", value: stats.activeCorpus.toString(), delta: null },
-    { label: "Total Revenue", value: stats.totalRevenue, delta: null },
-    { label: "Pending Approvals", value: stats.pendingCount.toString(), delta: null },
+    { label: "Total Value", value: stats.totalValue },
+    { label: "Active Corpus", value: stats.activeCorpus.toString() },
+    { label: "Total Revenue", value: stats.totalRevenue },
+    { label: "Pending Approvals", value: stats.pendingCount.toString() },
   ];
 
   return (
@@ -89,6 +114,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
         <p className="text-muted text-sm">patron control panel &mdash; portfolio overview, approvals, activity</p>
       </div>
 
+      {/* Portfolio Overview */}
       <section className="mb-10">
         <h2 className="text-sm text-muted mb-4 tracking-wide">// PORTFOLIO OVERVIEW</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -102,6 +128,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+        {/* Approval Queue */}
         <section className="lg:col-span-2">
           <h2 className="text-sm text-muted mb-4 tracking-wide">// APPROVAL QUEUE</h2>
           <div className="bg-surface border border-border divide-y divide-border">
@@ -123,18 +150,36 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                     )}
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => handleDecision(item.id, item.corpusId, "approved")}
-                      className="border border-green-800 text-green-500 px-3 py-1 text-xs hover:bg-green-950 transition-colors"
+                    <WorldIdVerify
+                      action={`approve-${item.corpusId}-${item.id}`}
+                      signal={address ?? undefined}
+                      onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
                     >
-                      APPROVE
-                    </button>
-                    <button
-                      onClick={() => handleDecision(item.id, item.corpusId, "rejected")}
-                      className="border border-red-900 text-red-500 px-3 py-1 text-xs hover:bg-red-950 transition-colors"
+                      {({ verify, loading: verifying }) => (
+                        <button
+                          onClick={verify}
+                          disabled={verifying}
+                          className="border border-green-800 text-green-500 px-3 py-1 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
+                        >
+                          {verifying ? "..." : "APPROVE"}
+                        </button>
+                      )}
+                    </WorldIdVerify>
+                    <WorldIdVerify
+                      action={`approve-${item.corpusId}-${item.id}`}
+                      signal={address ?? undefined}
+                      onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
                     >
-                      REJECT
-                    </button>
+                      {({ verify, loading: verifying }) => (
+                        <button
+                          onClick={verify}
+                          disabled={verifying}
+                          className="border border-red-900 text-red-500 px-3 py-1 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
+                        >
+                          {verifying ? "..." : "REJECT"}
+                        </button>
+                      )}
+                    </WorldIdVerify>
                   </div>
                 </div>
               </div>
@@ -142,6 +187,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
           </div>
         </section>
 
+        {/* Agent Status */}
         <section>
           <h2 className="text-sm text-muted mb-4 tracking-wide">// AGENT STATUS</h2>
           <div className="bg-surface border border-border divide-y divide-border">
@@ -158,6 +204,142 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
         </section>
       </div>
 
+      {/* Revenue Stream */}
+      <section className="mb-10">
+        <h2 className="text-sm text-muted mb-4 tracking-wide">// REVENUE STREAM</h2>
+        {revenueStreams.length === 0 ? (
+          <div className="bg-surface border border-border p-6 text-muted text-sm text-center">No revenue data yet.</div>
+        ) : (
+          <div className="space-y-4">
+            {revenueStreams.map((rs) => (
+              <div key={rs.corpusId} className="bg-surface border border-border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-accent">{rs.corpusName}</h3>
+                  <span className="text-sm text-foreground font-bold">${rs.totalRevenue.toFixed(2)}</span>
+                </div>
+                {/* Distribution breakdown */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  {[
+                    { label: "Creator", pct: rs.creatorShare, amount: rs.totalRevenue * rs.creatorShare / 100 },
+                    { label: "Investor", pct: rs.investorShare, amount: rs.totalRevenue * rs.investorShare / 100 },
+                    { label: "Treasury", pct: rs.treasuryShare, amount: rs.totalRevenue * rs.treasuryShare / 100 },
+                  ].map((d) => (
+                    <div key={d.label} className="text-center">
+                      <div className="text-xs text-muted mb-1">{d.label} ({d.pct}%)</div>
+                      <div className="text-sm text-foreground font-bold">${d.amount.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Source breakdown */}
+                <div className="flex gap-3 mb-4">
+                  {Object.entries(rs.bySource).map(([source, amount]) => (
+                    <span key={source} className="text-xs text-muted">
+                      {source}: <span className="text-foreground">${amount.toFixed(2)}</span>
+                    </span>
+                  ))}
+                </div>
+                {/* Recent transactions */}
+                {rs.recentTx.length > 0 && (
+                  <div className="border-t border-border pt-3 space-y-2">
+                    {rs.recentTx.map((tx, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted">{new Date(tx.date).toLocaleDateString()}</span>
+                          <span className="text-muted">[{tx.source.toUpperCase()}]</span>
+                        </div>
+                        <span className="text-foreground">+${tx.amount.toFixed(2)} {tx.currency}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* On-chain Status */}
+      <section className="mb-10">
+        <h2 className="text-sm text-muted mb-4 tracking-wide">// ON-CHAIN STATUS</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {corpusManagement.map((c) => (
+            <div key={c.id} className="bg-surface border border-border p-5">
+              <h3 className="text-sm font-bold text-accent mb-3">{c.name}</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted">Token ID</span>
+                  <span className="text-foreground font-mono">{c.hederaTokenId || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Supply</span>
+                  <span className="text-foreground">{c.totalSupply.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Pulse Price</span>
+                  <span className="text-accent">${c.pulsePrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Market Cap</span>
+                  <span className="text-foreground">${(c.totalSupply * c.pulsePrice).toLocaleString()}</span>
+                </div>
+                {c.hederaTokenId && (
+                  <a
+                    href={`https://hashscan.io/testnet/token/${c.hederaTokenId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center border border-border py-1.5 text-muted hover:text-accent hover:border-accent transition-colors mt-2"
+                  >
+                    View on HashScan &rarr;
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Corpus Management */}
+      <section className="mb-10">
+        <h2 className="text-sm text-muted mb-4 tracking-wide">// CORPUS MANAGEMENT</h2>
+        <div className="bg-surface border border-border divide-y divide-border">
+          {corpusManagement.map((c) => (
+            <div key={c.id} className="p-5 hover:bg-surface-hover transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-bold text-foreground">{c.name}</h3>
+                  <span className={`text-xs ${c.status === "Active" ? "text-green-400" : "text-muted"}`}>
+                    [{c.status.toUpperCase()}]
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div>
+                  <span className="text-muted">Approval Threshold</span>
+                  <p className="text-foreground mt-0.5">&gt; ${c.approvalThreshold} USDC</p>
+                </div>
+                <div>
+                  <span className="text-muted">GTM Budget</span>
+                  <p className="text-foreground mt-0.5">${c.gtmBudget}/mo</p>
+                </div>
+                <div>
+                  <span className="text-muted">Channels</span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {c.channels.map((ch) => (
+                      <span key={ch} className="border border-border px-1.5 py-0.5 text-foreground">{ch}</span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted">Token</span>
+                  <p className="text-foreground mt-0.5 font-mono">{c.hederaTokenId || "—"}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Activity Feed */}
       <section className="mb-10">
         <h2 className="text-sm text-muted mb-4 tracking-wide">// ACTIVITY FEED</h2>
         <div className="bg-surface border border-border">

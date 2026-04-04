@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/components/wallet-gate";
+import { WorldIdVerify } from "@/components/world-id-verify";
 
 interface CorpusDetail {
   id: string;
@@ -58,19 +59,43 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     (p) => p.walletAddress === address && p.status === "active"
   );
 
-  // TODO: In production, fetch actual Pulse balance from Hedera.
-  // For now, use pulseAmount from patron record or 0.
-  const myPulseBalance = corpus.patrons.find((p) => p.walletAddress === address)?.pulseAmount ?? 0;
+  // Fetch actual Pulse balance from Hedera Mirror Node
+  const [myPulseBalance, setPulseBalance] = useState(0);
+  const [pulseLoading, setPulseLoading] = useState(false);
+
+  useEffect(() => {
+    if (!address || !corpus.hederaTokenId) return;
+    let cancelled = false;
+    setPulseLoading(true);
+    fetch(
+      `https://testnet.mirrornode.hedera.com/api/v1/tokens/${corpus.hederaTokenId}/balances?account.id=${address}`
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const entry = data?.balances?.[0];
+        setPulseBalance(entry ? Number(entry.balance) : 0);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Fallback to DB patron record
+        const dbAmount = corpus.patrons.find((p) => p.walletAddress === address)?.pulseAmount ?? 0;
+        setPulseBalance(dbAmount);
+      })
+      .finally(() => { if (!cancelled) setPulseLoading(false); });
+    return () => { cancelled = true; };
+  }, [address, corpus.hederaTokenId, corpus.patrons]);
+
   const meetsThreshold = myPulseBalance >= minRequired;
 
-  const handleBecomePatron = useCallback(async () => {
+  const handleBecomePatron = useCallback(async (worldIdProof: unknown) => {
     if (!address || isPatron) return;
     setPatronStatus("loading");
     try {
       const res = await fetch(`/api/corpus/${corpus.id}/patrons`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address, pulseAmount: myPulseBalance }),
+        body: JSON.stringify({ walletAddress: address, pulseAmount: myPulseBalance, worldIdProof }),
       });
       if (res.ok) {
         setPatronStatus("patron");
@@ -116,24 +141,32 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                   Patron
                 </span>
               ) : (
-                <div className="relative group">
-                  <button
-                    onClick={handleBecomePatron}
-                    disabled={!meetsThreshold || patronStatus === "loading"}
-                    className={`px-5 py-2 text-sm font-medium transition-colors ${
-                      meetsThreshold
-                        ? "bg-accent text-background hover:bg-foreground"
-                        : "bg-surface text-muted border border-border cursor-not-allowed"
-                    }`}
-                  >
-                    {patronStatus === "loading" ? "Registering..." : "Become Patron"}
-                  </button>
-                  {!meetsThreshold && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-surface border border-border text-xs text-muted whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      {minRequired.toLocaleString()} Pulse required
+                <WorldIdVerify
+                  action={`become-patron-${corpus.id}`}
+                  signal={address ?? undefined}
+                  onSuccess={(proof) => handleBecomePatron(proof)}
+                >
+                  {({ verify, loading: verifying }) => (
+                    <div className="relative group">
+                      <button
+                        onClick={verify}
+                        disabled={!meetsThreshold || patronStatus === "loading" || verifying}
+                        className={`px-5 py-2 text-sm font-medium transition-colors ${
+                          meetsThreshold
+                            ? "bg-accent text-background hover:bg-foreground"
+                            : "bg-surface text-muted border border-border cursor-not-allowed"
+                        }`}
+                      >
+                        {patronStatus === "loading" || verifying ? "Verifying..." : "Become Patron"}
+                      </button>
+                      {!meetsThreshold && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-surface border border-border text-xs text-muted whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          {minRequired.toLocaleString()} Pulse required
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </WorldIdVerify>
               )}
               <button className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors">
                 Buy Pulse

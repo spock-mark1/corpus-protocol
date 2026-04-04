@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { cppPlaybooks, cppPlaybookPurchases, cppRevenues } from "@/db/schema";
+import { cppPlaybooks, cppPlaybookPurchases } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
-// POST /api/playbooks/:id/purchase — Purchase a playbook
-export async function POST(
+// PATCH /api/playbooks/:id/apply — Mark a purchased playbook as applied
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -12,7 +12,7 @@ export async function POST(
     const { id } = await params;
 
     const body = await request.json();
-    const { buyerAddress, txHash } = body;
+    const { buyerAddress } = body;
 
     if (!buyerAddress) {
       return Response.json(
@@ -21,6 +21,7 @@ export async function POST(
       );
     }
 
+    // Verify playbook exists
     const playbook = await db
       .select()
       .from(cppPlaybooks)
@@ -32,15 +33,8 @@ export async function POST(
       return Response.json({ error: "Playbook not found" }, { status: 404 });
     }
 
-    if (playbook.status !== "active") {
-      return Response.json(
-        { error: "Playbook is not available for purchase" },
-        { status: 400 }
-      );
-    }
-
-    // Check for duplicate purchase
-    const existing = await db
+    // Verify purchase exists
+    const purchase = await db
       .select()
       .from(cppPlaybookPurchases)
       .where(
@@ -52,32 +46,31 @@ export async function POST(
       .limit(1)
       .then((r) => r[0] ?? null);
 
-    if (existing) {
+    if (!purchase) {
       return Response.json(
-        { error: "Already purchased this playbook" },
+        { error: "No purchase found for this playbook and wallet" },
+        { status: 404 }
+      );
+    }
+
+    if (purchase.appliedAt) {
+      return Response.json(
+        { error: "Playbook already applied", appliedAt: purchase.appliedAt },
         { status: 409 }
       );
     }
 
-    const [purchase] = await db
-      .insert(cppPlaybookPurchases)
-      .values({
-        playbookId: id,
-        buyerAddress,
-        txHash: txHash ?? null,
-      })
+    // Mark as applied
+    const [updated] = await db
+      .update(cppPlaybookPurchases)
+      .set({ appliedAt: new Date() })
+      .where(eq(cppPlaybookPurchases.id, purchase.id))
       .returning();
 
-    // Record revenue for the playbook seller
-    await db.insert(cppRevenues).values({
-      corpusId: playbook.corpusId,
-      amount: playbook.price,
-      currency: playbook.currency,
-      source: "commerce",
-      txHash: txHash ?? null,
+    return Response.json({
+      ...updated,
+      content: playbook.content,
     });
-
-    return Response.json(purchase, { status: 201 });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

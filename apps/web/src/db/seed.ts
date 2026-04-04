@@ -286,6 +286,20 @@ async function main() {
       engagementRate: "4.8",
       conversions: 23,
       periodDays: 21,
+      content: {
+        schedule: { posts_per_day: 3, best_hours_utc: [14, 18, 22], thread_days: ["tue", "thu"] },
+        templates: [
+          { type: "hook", pattern: "Most {audience} don't know that {insight}. Here's why it matters:", usage: "thread opener" },
+          { type: "listicle", pattern: "{n} things I learned building {product} this week:", usage: "engagement post" },
+          { type: "cta", pattern: "Try it yourself → {product_url}", usage: "thread closer" },
+        ],
+        hashtags: ["#buildinpublic", "#devtools", "#saas", "#indiehacker"],
+        tactics: [
+          "reply to trending dev threads within 30min",
+          "quote-tweet industry news with product angle",
+          "engage with 5 developer accounts daily before posting",
+        ],
+      },
     },
     {
       corpusName: "MarketBot Alpha",
@@ -301,6 +315,20 @@ async function main() {
       engagementRate: "3.2",
       conversions: 67,
       periodDays: 30,
+      content: {
+        schedule: { posts_per_day: 1, best_hours_utc: [15, 20], thread_days: ["mon", "wed", "fri"] },
+        templates: [
+          { type: "hook", pattern: "I just read about {topic} and here's what most devs are missing:", usage: "thread opener" },
+          { type: "technical", pattern: "Here's the code:\n```\n{code_snippet}\n```\nWhy this matters:", usage: "mid-thread" },
+          { type: "cta", pattern: "Full blog post with examples → {blog_url}\nRT if this helped!", usage: "thread closer" },
+        ],
+        hashtags: ["#coding", "#webdev", "#typescript", "#buildinpublic"],
+        tactics: [
+          "convert each H2 section into a tweet",
+          "add code screenshots for complex snippets",
+          "tag original author if referencing external content",
+        ],
+      },
     },
     {
       corpusName: "GrowthEngine",
@@ -316,6 +344,19 @@ async function main() {
       engagementRate: "8.1",
       conversions: 34,
       periodDays: 14,
+      content: {
+        schedule: { posts_per_day: 2, best_hours_utc: [9, 13, 17], thread_days: ["tue", "thu"] },
+        templates: [
+          { type: "connection", pattern: "Hi {name}, I noticed your work on {topic} at {company}. Would love to connect.", usage: "connection request" },
+          { type: "follow_up", pattern: "Thanks for connecting! I've been working on {product} which helps teams like {company} with {problem}.", usage: "first follow-up" },
+        ],
+        hashtags: ["#B2B", "#SaaS", "#leadership", "#productmanagement"],
+        tactics: [
+          "target profiles with 'VP' or 'Head of' in title",
+          "engage with their posts before sending connection request",
+          "wait 3 days between connection and first message",
+        ],
+      },
     },
     {
       corpusName: "MarketBot Alpha",
@@ -331,6 +372,20 @@ async function main() {
       engagementRate: "12.4",
       conversions: 0,
       periodDays: 30,
+      content: {
+        schedule: { posts_per_day: 0, best_hours_utc: [], thread_days: [] },
+        templates: [
+          { type: "acknowledgment", pattern: "Thanks for flagging this, {user}. We're looking into it right now.", usage: "immediate response" },
+          { type: "resolution", pattern: "Update: We've identified the issue and {fix_description}. Thanks for your patience.", usage: "follow-up" },
+          { type: "escalation", pattern: "This needs human review — forwarding to the team.", usage: "internal escalation" },
+        ],
+        hashtags: [],
+        tactics: [
+          "respond to negative mentions within 15 minutes",
+          "never argue publicly — acknowledge and move to DM",
+          "escalate mentions with >100 likes to approval queue",
+        ],
+      },
     },
     {
       corpusName: "GrowthEngine",
@@ -346,6 +401,20 @@ async function main() {
       engagementRate: "6.2",
       conversions: 189,
       periodDays: 3,
+      content: {
+        schedule: { posts_per_day: 8, best_hours_utc: [0, 3, 6, 9, 12, 15, 18, 21], thread_days: ["launch_day"] },
+        templates: [
+          { type: "launch", pattern: "We just launched {product} on Product Hunt! {one_liner}\n\nCheck it out → {ph_url}", usage: "cross-platform announcement" },
+          { type: "comment_reply", pattern: "Great question! {answer}\n\nWe built this because {motivation}.", usage: "PH comment response" },
+        ],
+        hashtags: ["#producthunt", "#launch", "#startup", "#buildinpublic"],
+        tactics: [
+          "warm up community 1 week before launch",
+          "respond to every PH comment within 30 minutes",
+          "cross-post to X and LinkedIn at launch",
+          "send personal DMs to supporters asking for upvotes",
+        ],
+      },
     },
     {
       corpusName: "MarketBot Alpha",
@@ -361,6 +430,20 @@ async function main() {
       engagementRate: "5.4",
       conversions: 41,
       periodDays: 28,
+      content: {
+        schedule: { posts_per_day: 2, best_hours_utc: [14, 19], thread_days: ["mon", "wed", "fri"] },
+        templates: [
+          { type: "value_post", pattern: "I've been working on {topic} and learned {insight}. Here's what helped me:", usage: "value-first post" },
+          { type: "comment", pattern: "Good point. In my experience with {product_category}, {helpful_insight}.", usage: "helpful comment" },
+        ],
+        hashtags: [],
+        tactics: [
+          "build karma with helpful comments for 2 weeks before posting",
+          "never directly link product in first post",
+          "target r/SaaS, r/startups, r/webdev based on product fit",
+          "follow subreddit rules strictly — one ban kills the strategy",
+        ],
+      },
     },
   ];
 
@@ -377,6 +460,7 @@ async function main() {
       price: pb.price,
       version: pb.version,
       tags: pb.tags,
+      content: pb.content,
       impressions: pb.impressions,
       engagementRate: pb.engagementRate,
       conversions: pb.conversions,

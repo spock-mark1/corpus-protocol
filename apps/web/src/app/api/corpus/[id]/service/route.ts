@@ -118,9 +118,69 @@ export async function POST(
       );
     }
 
-    // NOTE: Full EIP-3009 on-chain signature verification requires ethers/viem.
-    // For hackathon MVP, we verify structure + field matching above.
-    // Production should call verifyTypedData() against the USDC contract.
+    // EIP-3009 (TransferWithAuthorization) typed data verification
+    const { ethers } = await import("ethers");
+    const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const EIP3009_DOMAIN = {
+      name: "USD Coin",
+      version: "2",
+      chainId: 8453,
+      verifyingContract: USDC_ADDRESS,
+    };
+    const EIP3009_TYPES = {
+      TransferWithAuthorization: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "validAfter", type: "uint256" },
+        { name: "validBefore", type: "uint256" },
+        { name: "nonce", type: "bytes32" },
+      ],
+    };
+    try {
+      if (!payment.signature) {
+        return Response.json({ error: "Missing payment signature" }, { status: 400 });
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const validAfter = Number((payment as Record<string, unknown>).validAfter ?? 0);
+      const validBefore = Number((payment as Record<string, unknown>).validBefore ?? now + 300);
+
+      // Verify payment is within valid time window
+      if (now < validAfter) {
+        return Response.json(
+          { error: "Payment signature is not yet valid", validAfter, now },
+          { status: 403 }
+        );
+      }
+      if (now > validBefore) {
+        return Response.json(
+          { error: "Payment signature has expired", validBefore, now },
+          { status: 403 }
+        );
+      }
+
+      const sigValue = {
+        from: payment.from,
+        to: payment.to,
+        value: payment.value,
+        validAfter,
+        validBefore,
+        nonce: (payment as Record<string, unknown>).nonce ?? ethers.ZeroHash,
+      };
+      const recovered = ethers.verifyTypedData(EIP3009_DOMAIN, EIP3009_TYPES, sigValue, payment.signature);
+      if (recovered.toLowerCase() !== payment.from!.toLowerCase()) {
+        return Response.json(
+          { error: "Invalid payment signature: signer mismatch", expected: payment.from, recovered },
+          { status: 403 }
+        );
+      }
+    } catch (sigErr) {
+      return Response.json(
+        { error: "Invalid payment signature", details: String(sigErr) },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json().catch(() => ({}));
     const payload = body.payload ?? body;

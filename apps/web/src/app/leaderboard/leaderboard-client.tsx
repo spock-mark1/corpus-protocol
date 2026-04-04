@@ -5,18 +5,56 @@ import { useState } from "react";
 const TABS = ["Top Corpus", "Top Patrons", "Top Agents", "Trending"] as const;
 type Tab = (typeof TABS)[number];
 
-interface Entry {
+interface TopCorpusEntry {
   rank: number;
   id: string;
   name: string;
   category: string;
-  revenue: string;
-  marketCap: string;
+  revenueStr: string;
+  marketCapStr: string;
   patrons: number;
+}
+
+interface TopPatronEntry {
+  rank: number;
+  wallet: string;
+  totalPulse: number;
+  corpusCount: number;
+  roles: string[];
+}
+
+interface TopAgentEntry {
+  rank: number;
+  id: string;
+  name: string;
+  category: string;
+  activityCount: number;
+  posts: number;
+  replies: number;
+  commerce: number;
+  revenue: number;
+  online: boolean;
+}
+
+interface TrendingEntry {
+  rank: number;
+  id: string;
+  name: string;
+  category: string;
+  recentRevenue: number;
+  recentPatrons: number;
+  recentActivity: number;
   pulsePrice: number;
 }
 
-export function LeaderboardClient({ entries }: { entries: Entry[] }) {
+interface Props {
+  topCorpus: TopCorpusEntry[];
+  topPatrons: TopPatronEntry[];
+  topAgents: TopAgentEntry[];
+  trending: TrendingEntry[];
+}
+
+export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Top Corpus");
 
   return (
@@ -42,35 +80,139 @@ export function LeaderboardClient({ entries }: { entries: Entry[] }) {
         ))}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-muted text-left text-xs uppercase tracking-wider">
-              <th className="pb-4 pr-4 font-medium w-16">#</th>
-              <th className="pb-4 pr-4 font-medium">Name</th>
-              <th className="pb-4 pr-4 font-medium">Category</th>
-              <th className="pb-4 pr-4 font-medium text-right">Revenue</th>
-              <th className="pb-4 pr-4 font-medium text-right">Pulse MCap</th>
-              <th className="pb-4 font-medium text-right">Patrons</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr
-                key={entry.id}
-                className="border-b border-border hover:bg-surface transition-colors"
-              >
-                <td className="py-4 pr-4 text-accent font-bold">{entry.rank}</td>
-                <td className="py-4 pr-4 text-foreground">{entry.name}</td>
-                <td className="py-4 pr-4 text-muted text-xs">[{entry.category.toUpperCase()}]</td>
-                <td className="py-4 pr-4 text-right text-foreground tabular-nums">{entry.revenue}</td>
-                <td className="py-4 pr-4 text-right text-muted tabular-nums">{entry.marketCap}</td>
-                <td className="py-4 text-right text-muted tabular-nums">{entry.patrons}</td>
+      {activeTab === "Top Corpus" && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted text-left text-xs uppercase tracking-wider">
+                <th className="pb-4 pr-4 font-medium w-16">#</th>
+                <th className="pb-4 pr-4 font-medium">Name</th>
+                <th className="pb-4 pr-4 font-medium">Category</th>
+                <th className="pb-4 pr-4 font-medium text-right">Revenue</th>
+                <th className="pb-4 pr-4 font-medium text-right">Pulse MCap</th>
+                <th className="pb-4 font-medium text-right">Patrons</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {topCorpus.map((e) => (
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
+                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.revenueStr}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.marketCapStr}</td>
+                  <td className="py-4 text-right text-muted tabular-nums">{e.patrons}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "Top Patrons" && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted text-left text-xs uppercase tracking-wider">
+                <th className="pb-4 pr-4 font-medium w-16">#</th>
+                <th className="pb-4 pr-4 font-medium">Wallet</th>
+                <th className="pb-4 pr-4 font-medium">Roles</th>
+                <th className="pb-4 pr-4 font-medium text-right">Total Pulse</th>
+                <th className="pb-4 font-medium text-right">Corpuses</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topPatrons.map((e) => (
+                <tr key={e.wallet} className="border-b border-border hover:bg-surface transition-colors">
+                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-4 text-foreground font-mono text-xs">{e.wallet}</td>
+                  <td className="py-4 pr-4">
+                    <div className="flex gap-1">
+                      {e.roles.map((r) => (
+                        <span key={r} className={`text-xs ${r === "Creator" ? "text-accent" : r === "Treasury" ? "text-yellow-400" : "text-muted"}`}>
+                          [{r.toUpperCase()}]
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.totalPulse.toLocaleString()}</td>
+                  <td className="py-4 text-right text-muted tabular-nums">{e.corpusCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "Top Agents" && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted text-left text-xs uppercase tracking-wider">
+                <th className="pb-4 pr-4 font-medium w-16">#</th>
+                <th className="pb-4 pr-4 font-medium">Agent</th>
+                <th className="pb-4 pr-4 font-medium">Category</th>
+                <th className="pb-4 pr-4 font-medium text-right">Activities</th>
+                <th className="pb-4 pr-4 font-medium text-right">Posts</th>
+                <th className="pb-4 pr-4 font-medium text-right">Replies</th>
+                <th className="pb-4 pr-4 font-medium text-right">Commerce</th>
+                <th className="pb-4 pr-4 font-medium text-right">Revenue</th>
+                <th className="pb-4 font-medium text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topAgents.map((e) => (
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
+                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.activityCount}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.posts}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.replies}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.commerce}</td>
+                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">${e.revenue.toFixed(2)}</td>
+                  <td className="py-4 text-center">
+                    <span className={`text-xs ${e.online ? "text-green-400" : "text-muted"}`}>
+                      {e.online ? "[ONLINE]" : "[OFFLINE]"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "Trending" && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted text-left text-xs uppercase tracking-wider">
+                <th className="pb-4 pr-4 font-medium w-16">#</th>
+                <th className="pb-4 pr-4 font-medium">Name</th>
+                <th className="pb-4 pr-4 font-medium">Category</th>
+                <th className="pb-4 pr-4 font-medium text-right">7d Revenue</th>
+                <th className="pb-4 pr-4 font-medium text-right">New Patrons</th>
+                <th className="pb-4 pr-4 font-medium text-right">7d Activity</th>
+                <th className="pb-4 font-medium text-right">Pulse Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trending.map((e) => (
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
+                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">${e.recentRevenue.toFixed(2)}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">+{e.recentPatrons}</td>
+                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.recentActivity}</td>
+                  <td className="py-4 text-right text-accent tabular-nums">${e.pulsePrice.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         engagementRate: cppPlaybooks.engagementRate,
         conversions: cppPlaybooks.conversions,
         periodDays: cppPlaybooks.periodDays,
+        content: cppPlaybooks.content,
         purchases: purchaseCount.count,
         createdAt: cppPlaybooks.createdAt,
       })
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
       description,
       price,
       tags,
+      content,
       impressions,
       engagementRate,
       conversions,
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
         description,
         price: String(price),
         tags: tags ?? [],
+        content: content ?? null,
         impressions: impressions ?? 0,
         engagementRate: String(engagementRate ?? 0),
         conversions: conversions ?? 0,

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppPatrons } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { verifyWorldIdProof, type WorldIdProof } from "@/lib/world-id";
 
 // GET /api/corpus/:id/patrons — List patrons for a corpus
 export async function GET(
@@ -43,7 +44,7 @@ export async function POST(
     const { id } = await params;
 
     const body = await request.json();
-    const { walletAddress, pulseAmount } = body;
+    const { walletAddress, pulseAmount, worldIdProof } = body;
 
     if (!walletAddress) {
       return Response.json(
@@ -88,6 +89,48 @@ export async function POST(
       );
     }
 
+    // Verify World ID proof (Sybil prevention — 1 person = 1 patron)
+    if (!worldIdProof) {
+      return Response.json(
+        { error: "World ID verification required to become Patron" },
+        { status: 400 }
+      );
+    }
+
+    const worldIdResult = await verifyWorldIdProof(
+      worldIdProof as WorldIdProof,
+      `become-patron-${id}`,
+      walletAddress
+    );
+
+    if (!worldIdResult.success) {
+      return Response.json(
+        { error: worldIdResult.error ?? "World ID verification failed" },
+        { status: 403 }
+      );
+    }
+
+    // Check if this World ID nullifier has already been used for this corpus
+    const existingWorldId = await db
+      .select()
+      .from(cppPatrons)
+      .where(
+        and(
+          eq(cppPatrons.corpusId, id),
+          eq(cppPatrons.worldIdHash, worldIdResult.nullifier_hash),
+          eq(cppPatrons.status, "active")
+        )
+      )
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (existingWorldId) {
+      return Response.json(
+        { error: "This World ID is already registered as a Patron for this Corpus" },
+        { status: 409 }
+      );
+    }
+
     // Check for existing active patron
     const existing = await db
       .select()
@@ -105,11 +148,14 @@ export async function POST(
       );
     }
 
+    // Calculate share based on holdings
+    const sharePercent = ((pulseAmount / corpus.totalSupply) * 100).toFixed(2);
+
     // Re-activate revoked patron or create new one
     if (existing && existing.status === "revoked") {
       const [patron] = await db
         .update(cppPatrons)
-        .set({ status: "active", pulseAmount, role: "Investor" })
+        .set({ status: "active", pulseAmount, role: "Investor", share: sharePercent, worldIdHash: worldIdResult.nullifier_hash })
         .where(eq(cppPatrons.id, existing.id))
         .returning();
       return Response.json(patron, { status: 200 });
@@ -122,7 +168,8 @@ export async function POST(
         walletAddress,
         role: "Investor",
         pulseAmount,
-        share: "0",
+        share: sharePercent,
+        worldIdHash: worldIdResult.nullifier_hash,
       })
       .returning();
 

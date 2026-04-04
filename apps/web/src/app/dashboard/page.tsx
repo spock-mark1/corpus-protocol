@@ -1,6 +1,5 @@
 import { db } from "@/db";
 import { cppCorpus } from "@/db/schema";
-import { desc } from "drizzle-orm";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
@@ -8,7 +7,7 @@ export default async function DashboardPage() {
     with: {
       approvals: { orderBy: (a, { desc: d }) => [d(a.createdAt)] },
       activities: { orderBy: (a, { desc: d }) => [d(a.createdAt)], limit: 10 },
-      revenues: true,
+      revenues: { orderBy: (r, { desc: d }) => [d(r.createdAt)] },
       patrons: true,
     },
   });
@@ -56,6 +55,43 @@ export default async function DashboardPage() {
       : "never",
   }));
 
+  // Revenue stream data per corpus
+  const revenueStreams = corpuses.map((c) => {
+    const corpusRevenue = c.revenues.reduce((s, r) => s + Number(r.amount), 0);
+    const bySource: Record<string, number> = {};
+    for (const r of c.revenues) {
+      bySource[r.source] = (bySource[r.source] ?? 0) + Number(r.amount);
+    }
+    return {
+      corpusId: c.id,
+      corpusName: c.name,
+      totalRevenue: corpusRevenue,
+      creatorShare: c.creatorShare,
+      investorShare: c.investorShare,
+      treasuryShare: c.treasuryShare,
+      bySource,
+      recentTx: c.revenues.slice(0, 5).map((r) => ({
+        amount: Number(r.amount),
+        source: r.source,
+        currency: r.currency,
+        date: r.createdAt.toISOString(),
+      })),
+    };
+  }).filter((r) => r.totalRevenue > 0);
+
+  // Corpus management data
+  const corpusManagement = corpuses.map((c) => ({
+    id: c.id,
+    name: c.name,
+    status: c.status,
+    approvalThreshold: Number(c.approvalThreshold),
+    gtmBudget: Number(c.gtmBudget),
+    channels: c.channels,
+    hederaTokenId: c.hederaTokenId ?? "",
+    totalSupply: c.totalSupply,
+    pulsePrice: Number(c.pulsePrice),
+  }));
+
   return (
     <DashboardClient
       stats={{
@@ -67,6 +103,8 @@ export default async function DashboardPage() {
       approvals={pendingApprovals}
       activities={allActivities}
       agents={agents}
+      revenueStreams={revenueStreams}
+      corpusManagement={corpusManagement}
     />
   );
 }

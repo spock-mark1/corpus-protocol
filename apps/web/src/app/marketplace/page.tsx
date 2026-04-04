@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/components/wallet-gate";
 
+type PlaybookContent = {
+  schedule?: { posts_per_day: number; best_hours_utc: number[]; thread_days: string[] };
+  templates?: { type: string; pattern: string; usage: string }[];
+  hashtags?: string[];
+  tactics?: string[];
+} | null;
+
 type Playbook = {
   id: string;
   title: string;
@@ -19,6 +26,7 @@ type Playbook = {
   conversions: number;
   periodDays: number;
   tags: string[];
+  content: PlaybookContent;
   createdAt: string;
   status: string;
 };
@@ -90,14 +98,17 @@ export default function MarketplacePage() {
     }
   }, [tab, isConnected, address]);
 
-  // Fetch purchased
+  // Fetch purchased (also on browse to check unlock status)
   useEffect(() => {
-    if (tab === "purchased" && isConnected && address) {
-      setLoading(true);
-      fetch(`/api/playbooks/purchased?wallet=${address}`)
-        .then((r) => r.json())
-        .then(setPurchased)
-        .finally(() => setLoading(false));
+    if (isConnected && address) {
+      const shouldLoad = tab === "purchased" || tab === "browse";
+      if (shouldLoad) {
+        if (tab === "purchased") setLoading(true);
+        fetch(`/api/playbooks/purchased?wallet=${address}`)
+          .then((r) => r.json())
+          .then(setPurchased)
+          .finally(() => { if (tab === "purchased") setLoading(false); });
+      }
     }
   }, [tab, isConnected, address]);
 
@@ -111,6 +122,21 @@ export default function MarketplacePage() {
     if (res.ok) {
       setSelected(null);
       fetchPlaybooks();
+    }
+  };
+
+  const handleApply = async (playbookId: string) => {
+    if (!address) return;
+    const res = await fetch(`/api/playbooks/${playbookId}/apply`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buyerAddress: address }),
+    });
+    if (res.ok) {
+      // Refresh purchased list
+      fetch(`/api/playbooks/purchased?wallet=${address}`)
+        .then((r) => r.json())
+        .then(setPurchased);
     }
   };
 
@@ -326,32 +352,10 @@ export default function MarketplacePage() {
               </div>
 
               {/* Contents preview */}
-              <div className="bg-surface border border-border p-6">
-                <div className="text-xs text-muted mb-4">
-                  [PLAYBOOK CONTENTS]
-                </div>
-                <div className="space-y-3">
-                  {[
-                    { name: "strategy_prompt", label: "Strategy Prompt", locked: true },
-                    { name: "content_templates", label: "Content Templates (5)", locked: true },
-                    { name: "targeting_rules", label: "Targeting Rules (8)", locked: true },
-                    { name: "posting_schedule", label: "Posting Schedule", locked: true },
-                    { name: "response_patterns", label: "Response Patterns (12)", locked: true },
-                  ].map((item) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between py-2 border-b border-border"
-                    >
-                      <span className="text-sm text-foreground">
-                        {item.label}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {item.locked ? "[LOCKED]" : "[UNLOCKED]"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <PlaybookContents
+                content={selected.content}
+                isPurchased={purchased.some((pp) => pp.playbook.id === selected.id)}
+              />
             </div>
 
             {/* Sidebar */}
@@ -538,7 +542,10 @@ export default function MarketplacePage() {
                       [{pp.appliedAt ? "APPLIED" : "NOT APPLIED"}]
                     </span>
                     {!pp.appliedAt && (
-                      <button className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors">
+                      <button
+                        onClick={() => handleApply(pp.playbook.id)}
+                        className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors"
+                      >
                         Apply to Agent
                       </button>
                     )}
@@ -563,6 +570,101 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     <div className="text-center">
       <div className="text-lg font-bold text-accent">{value}</div>
       <div className="text-xs text-muted">{label}</div>
+    </div>
+  );
+}
+
+function PlaybookContents({ content, isPurchased }: { content: PlaybookContent; isPurchased: boolean }) {
+  const c = content as PlaybookContent;
+
+  // Unlocked: purchased AND has content
+  if (isPurchased && c) {
+    return (
+    <div className="bg-surface border border-border p-6 space-y-5">
+      <div className="text-xs text-green-400 mb-4">[PLAYBOOK CONTENTS — UNLOCKED]</div>
+      {c.schedule && (
+        <div>
+          <div className="text-xs text-muted mb-2">Schedule</div>
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div>
+              <span className="text-muted">Posts/day:</span>{" "}
+              <span className="text-foreground">{c.schedule.posts_per_day}</span>
+            </div>
+            <div>
+              <span className="text-muted">Best hours (UTC):</span>{" "}
+              <span className="text-foreground">{c.schedule.best_hours_utc.join(", ")}</span>
+            </div>
+            <div>
+              <span className="text-muted">Thread days:</span>{" "}
+              <span className="text-foreground">{c.schedule.thread_days.join(", ")}</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {c.templates && c.templates.length > 0 && (
+        <div>
+          <div className="text-xs text-muted mb-2">Templates ({c.templates.length})</div>
+          <div className="space-y-2">
+            {c.templates.map((t, i) => (
+              <div key={i} className="bg-background border border-border p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-accent">[{t.type.toUpperCase()}]</span>
+                  <span className="text-xs text-muted">{t.usage}</span>
+                </div>
+                <p className="text-xs text-foreground font-mono">{t.pattern}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {c.hashtags && c.hashtags.length > 0 && (
+        <div>
+          <div className="text-xs text-muted mb-2">Hashtags</div>
+          <div className="flex flex-wrap gap-1">
+            {c.hashtags.map((h) => (
+              <span key={h} className="text-xs border border-border px-2 py-0.5 text-accent">{h}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {c.tactics && c.tactics.length > 0 && (
+        <div>
+          <div className="text-xs text-muted mb-2">Tactics ({c.tactics.length})</div>
+          <ul className="space-y-1">
+            {c.tactics.map((t, i) => (
+              <li key={i} className="text-xs text-foreground flex gap-2">
+                <span className="text-muted shrink-0">{i + 1}.</span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+  }
+
+  // Locked view (not purchased or no content)
+  const items = [
+    { label: "Posting Schedule", count: c?.schedule ? 1 : 0 },
+    { label: "Content Templates", count: c?.templates?.length ?? 0 },
+    { label: "Hashtags", count: c?.hashtags?.length ?? 0 },
+    { label: "Tactics", count: c?.tactics?.length ?? 0 },
+  ];
+  return (
+    <div className="bg-surface border border-border p-6">
+      <div className="text-xs text-muted mb-4">[PLAYBOOK CONTENTS]</div>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between py-2 border-b border-border">
+            <span className="text-sm text-foreground">
+              {item.label}{item.count > 0 ? ` (${item.count})` : ""}
+            </span>
+            <span className="text-xs text-muted">[LOCKED]</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted mt-4">Purchase to unlock full playbook contents.</p>
     </div>
   );
 }

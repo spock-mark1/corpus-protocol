@@ -207,6 +207,9 @@ export const cppPlaybooks = pgTable(
     tags: text("tags").array().notNull().default([]),
     status: text("status").notNull().default("active"),
 
+    // Playbook content — PRD structure: schedule, templates, hashtags, tactics
+    content: jsonb("content"),
+
     // Verified metrics
     impressions: integer("impressions").notNull().default(0),
     engagementRate: numeric("engagementRate", { precision: 5, scale: 2 }).notNull().default("0"),
