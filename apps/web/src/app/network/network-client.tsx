@@ -216,7 +216,7 @@ export function NetworkClient({ stats: initialStats, transactions: initialTransa
                       />
                       <span className="text-muted shrink-0">&rarr;</span>
                       <span className="text-accent font-bold shrink-0 tabular-nums">
-                        ${tx.amount.toFixed(2)}
+                        {tx.amount < 0.01 ? tx.amount.toFixed(3) : tx.amount.toFixed(2)} USDC
                       </span>
                       <span className="text-muted shrink-0">&rarr;</span>
                       <AgentLabel
