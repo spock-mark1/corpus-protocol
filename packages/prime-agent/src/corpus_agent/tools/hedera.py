@@ -1,4 +1,8 @@
-"""Hedera tools — internal economy (Pulse tokens, HBAR dividends, governance)."""
+"""Hedera tools — internal economy (Pulse tokens, HBAR dividends, governance).
+
+All operations are proxied through the Corpus Web API or read from
+Hedera Mirror Node. The Agent never holds private keys.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +24,7 @@ _hedera_kit: HederaKit | None = None
 def _get_kit() -> HederaKit:
     global _hedera_kit
     if _hedera_kit is None:
-        _hedera_kit = HederaKit(_settings)
+        _hedera_kit = HederaKit(_api)
     return _hedera_kit
 
 
@@ -32,7 +36,6 @@ async def transfer_hbar(to_account: str, amount: float, reason: str = "") -> dic
     # Check threshold
     threshold = float(_settings.approval_threshold)
     if amount >= threshold:
-        # Request approval first
         result = await _api.create_approval(
             _settings.corpus_id,
             type_="transaction",
@@ -50,21 +53,20 @@ async def transfer_hbar(to_account: str, amount: float, reason: str = "") -> dic
     return await kit.transfer_hbar(to_account, amount)
 
 
-@tool("get_hbar_balance", "Check the agent's current HBAR balance on Hedera")
+@tool("get_hbar_balance", "Check HBAR balance for the Corpus account via Mirror Node")
 async def get_hbar_balance() -> dict:
     kit = _get_kit()
     await kit.initialize()
     return await kit.get_balance()
 
 
-@tool("create_pulse_token", "Create a new Pulse (equity) token via HTS. Requires approval.")
+@tool("create_pulse_token", "Request Pulse (equity) token creation. Requires Creator approval on Dashboard.")
 async def create_pulse_token(name: str, symbol: str, initial_supply: int = 1000000) -> dict:
-    # Token creation always requires approval
     result = await _api.create_approval(
         _settings.corpus_id,
         type_="transaction",
         title=f"Create Pulse token: {name} ({symbol})",
-        description=f"Initial supply: {initial_supply}",
+        description=f"Initial supply: {initial_supply}. Token creation handled by Web via HTS.",
     )
     return {
         "status": "approval_requested",
@@ -75,14 +77,14 @@ async def create_pulse_token(name: str, symbol: str, initial_supply: int = 10000
     }
 
 
-@tool("airdrop_pulse", "Distribute Pulse tokens to Patron accounts. Requires approval.")
+@tool("airdrop_pulse", "Distribute Pulse tokens to Patron accounts. Requires Creator approval.")
 async def airdrop_pulse(token_id: str, recipients: str) -> dict:
     """recipients: JSON string of [{account: '0.0.xxx', amount: 1000}, ...]"""
     result = await _api.create_approval(
         _settings.corpus_id,
         type_="transaction",
         title=f"Pulse airdrop: token {token_id}",
-        description=f"Recipients: {recipients}",
+        description=f"Recipients: {recipients}. Airdrop executed by Web via HTS.",
     )
     return {
         "status": "approval_requested",
@@ -91,7 +93,7 @@ async def airdrop_pulse(token_id: str, recipients: str) -> dict:
     }
 
 
-@tool("get_pulse_balance", "Check Pulse token balance for a specific account")
+@tool("get_pulse_balance", "Check Pulse token balance for a specific account via Mirror Node")
 async def get_pulse_balance(account_id: str, token_id: str) -> dict:
     kit = _get_kit()
     await kit.initialize()

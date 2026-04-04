@@ -39,7 +39,6 @@ def start(corpus_id: str, env_file: str):
     console.print(f"[bold green]Corpus Agent v{__version__}[/bold green]")
     console.print(f"  Corpus ID:  {settings.corpus_id}")
     console.print(f"  API URL:    {settings.corpus_api_url}")
-    console.print(f"  Hedera:     {settings.hedera_network} ({settings.hedera_account_id or 'not set'})")
     console.print()
 
     from corpus_agent.scheduler import run
@@ -50,10 +49,7 @@ def start(corpus_id: str, env_file: str):
 @main.command()
 @click.option("--api-key", prompt="Corpus API Key", help="API key issued at Corpus creation")
 @click.option("--openai-key", prompt="OpenAI API Key", help="OpenAI API key")
-@click.option("--hedera-account", prompt="Hedera Account ID", default="", help="e.g. 0.0.12345")
-@click.option("--hedera-key", prompt="Hedera Private Key", default="", help="Hedera operator private key")
-@click.option("--base-key", prompt="Base Wallet Private Key", default="", help="EVM private key for x402 USDC signing")
-def config(api_key: str, openai_key: str, hedera_account: str, hedera_key: str, base_key: str):
+def config(api_key: str, openai_key: str):
     """Configure agent credentials (saved to ~/.corpus-agent/config.json)."""
     ensure_app_dir()
     cfg_path = APP_DIR / "config.json"
@@ -66,9 +62,6 @@ def config(api_key: str, openai_key: str, hedera_account: str, hedera_key: str, 
         k: v for k, v in {
             "corpus_api_key": api_key,
             "openai_api_key": openai_key,
-            "hedera_account_id": hedera_account,
-            "hedera_private_key": hedera_key,
-            "base_wallet_private_key": base_key,
         }.items() if v
     })
 

@@ -35,14 +35,6 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
 
-    # Hedera (Internal Economy)
-    hedera_account_id: str = ""
-    hedera_private_key: str = ""
-    hedera_network: str = "testnet"
-
-    # Base / x402 (External Economy)
-    base_wallet_private_key: str = ""
-
     # Agent behaviour
     agent_cycle_interval: int = Field(default=300, description="Seconds between agent cycles")
     polling_interval: int = Field(default=10, description="Seconds between API polls")
