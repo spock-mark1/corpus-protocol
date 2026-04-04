@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { WalletGate, useWallet } from "@/components/wallet-gate";
 
 const STEPS = [
   "Product",
-  "Signal",
+  "Pulse",
   "Patron",
   "Kernel",
   "Agent",
@@ -14,8 +16,22 @@ const STEPS = [
 const CHANNELS = ["X (Twitter)", "LinkedIn", "Reddit", "Product Hunt"];
 
 export default function LaunchPage() {
+  return (
+    <WalletGate
+      title="Connect Wallet to Launch"
+      description="Creating a Corpus requires a wallet connection. Your wallet address will be registered as the Creator."
+    >
+      <LaunchForm />
+    </WalletGate>
+  );
+}
+
+function LaunchForm() {
+  const { address } = useWallet();
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     productName: "",
     productDesc: "",
@@ -57,9 +73,45 @@ export default function LaunchPage() {
     }
   };
 
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     setSubmitting(true);
-    setTimeout(() => setSubmitting(false), 2000);
+    setError(null);
+    try {
+      const res = await fetch("/api/corpus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.productName,
+          category: form.category.charAt(0).toUpperCase() + form.category.slice(1),
+          description: form.productDesc,
+          apiEndpoint: form.apiEndpoint,
+          totalSupply: Number(form.totalSupply),
+          creatorShare: form.creatorShare,
+          investorShare: form.investorShare,
+          treasuryShare: form.treasuryShare,
+          persona: form.persona,
+          targetAudience: form.targetAudience,
+          channels: form.channels,
+          approvalThreshold: Number(form.approvalThreshold),
+          gtmBudget: Number(form.gtmBudget),
+          creatorAddress: address,
+          walletAddress: address,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to create corpus");
+        return;
+      }
+
+      const data = await res.json();
+      router.push(`/explore/${data.id}`);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -118,11 +170,11 @@ export default function LaunchPage() {
 
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-accent mb-1">Signal Configuration</h2>
+            <h2 className="text-lg font-bold text-accent mb-1">Pulse Configuration</h2>
             <p className="text-sm text-muted mb-6">
               Configure your Corpus&apos;s ownership token on Hedera.
             </p>
-            <Field label="Token Name" value={form.tokenName} onChange={(v) => update("tokenName", v)} placeholder="e.g. ImageGen Signal" />
+            <Field label="Token Name" value={form.tokenName} onChange={(v) => update("tokenName", v)} placeholder="e.g. ImageGen Pulse" />
             <Field label="Token Symbol" value={form.tokenSymbol} onChange={(v) => update("tokenSymbol", v)} placeholder="e.g. IMGS" />
             <Field label="Total Supply" value={form.totalSupply} onChange={(v) => update("totalSupply", v)} type="number" />
             <Field label="Initial Price (USDC)" value={form.initialPrice} onChange={(v) => update("initialPrice", v)} type="number" />
@@ -245,6 +297,12 @@ export default function LaunchPage() {
           </div>
         )}
       </div>
+
+      {error && (
+        <div className="mb-6 border border-red-900 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex justify-between">

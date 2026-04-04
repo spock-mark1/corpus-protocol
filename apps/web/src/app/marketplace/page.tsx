@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useWallet } from "@/components/wallet-gate";
 
 type Playbook = {
   id: string;
@@ -171,6 +172,7 @@ const MOCK_PLAYBOOKS: Playbook[] = [
 ];
 
 export default function MarketplacePage() {
+  const { isConnected, connect } = useWallet();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [channel, setChannel] = useState("All");
@@ -460,9 +462,23 @@ export default function MarketplacePage() {
                 <div className="text-xs text-muted mb-6">
                   USDC via x402
                 </div>
-                <button className="w-full bg-accent text-background py-2.5 text-sm font-medium hover:bg-foreground transition-colors mb-3">
-                  Purchase Playbook
-                </button>
+                {isConnected ? (
+                  <button className="w-full bg-accent text-background py-2.5 text-sm font-medium hover:bg-foreground transition-colors mb-3">
+                    Purchase Playbook
+                  </button>
+                ) : (
+                  <button
+                    onClick={connect}
+                    className="w-full bg-accent text-background py-2.5 text-sm font-medium hover:bg-foreground transition-colors mb-3 flex items-center justify-center gap-2"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                      <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" />
+                    </svg>
+                    Connect to Purchase
+                  </button>
+                )}
                 <p className="text-xs text-muted leading-relaxed">
                   Your agent will auto-apply the strategy, templates, and
                   schedule after purchase.
@@ -512,109 +528,123 @@ export default function MarketplacePage() {
 
       {/* My Playbooks tab */}
       {tab === "my" && (
-        <div className="space-y-4">
-          <div className="bg-surface border border-border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-accent">
-                  SaaS Developer Outreach on X
-                </h3>
-                <p className="text-xs text-muted mt-1">
-                  Auto-generated from MarketBot Alpha activity
-                </p>
+        isConnected ? (
+          <div className="space-y-4">
+            <div className="bg-surface border border-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-accent">
+                    SaaS Developer Outreach on X
+                  </h3>
+                  <p className="text-xs text-muted mt-1">
+                    Auto-generated from MarketBot Alpha activity
+                  </p>
+                </div>
+                <span className="text-xs text-green-400">[ACTIVE]</span>
               </div>
-              <span className="text-xs text-green-400">[ACTIVE]</span>
+              <div className="grid grid-cols-4 gap-4 text-xs mb-4">
+                <div>
+                  <div className="text-muted">Revenue</div>
+                  <div className="text-accent font-bold">$78.00</div>
+                </div>
+                <div>
+                  <div className="text-muted">Sales</div>
+                  <div className="text-foreground">156</div>
+                </div>
+                <div>
+                  <div className="text-muted">Rating</div>
+                  <div className="text-foreground">4.8</div>
+                </div>
+                <div>
+                  <div className="text-muted">Version</div>
+                  <div className="text-foreground">v3</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
+                  Edit Price
+                </button>
+                <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
+                  Update Version
+                </button>
+                <button className="px-3 py-1.5 text-xs border border-border text-muted hover:text-foreground transition-colors">
+                  Deactivate
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-4 text-xs mb-4">
-              <div>
-                <div className="text-muted">Revenue</div>
-                <div className="text-accent font-bold">$78.00</div>
-              </div>
-              <div>
-                <div className="text-muted">Sales</div>
-                <div className="text-foreground">156</div>
-              </div>
-              <div>
-                <div className="text-muted">Rating</div>
-                <div className="text-foreground">4.8</div>
-              </div>
-              <div>
-                <div className="text-muted">Version</div>
-                <div className="text-foreground">v3</div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
-                Edit Price
-              </button>
-              <button className="px-3 py-1.5 text-xs border border-border text-foreground hover:bg-surface-hover transition-colors">
-                Update Version
-              </button>
-              <button className="px-3 py-1.5 text-xs border border-border text-muted hover:text-foreground transition-colors">
-                Deactivate
-              </button>
+            <div className="border border-dashed border-border p-8 text-center">
+              <p className="text-sm text-muted mb-2">
+                Playbooks are auto-generated when your agent accumulates enough
+                GTM data.
+              </p>
+              <p className="text-xs text-muted">
+                Keep your Prime Agent running to build new playbooks.
+              </p>
             </div>
           </div>
-          <div className="border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted mb-2">
-              Playbooks are auto-generated when your agent accumulates enough
-              GTM data.
-            </p>
-            <p className="text-xs text-muted">
-              Keep your Prime Agent running to build new playbooks.
-            </p>
-          </div>
-        </div>
+        ) : (
+          <WalletRequiredTab
+            message="Connect your wallet to view and manage your published playbooks."
+            onConnect={connect}
+          />
+        )
       )}
 
       {/* Purchased tab */}
       {tab === "purchased" && (
-        <div className="space-y-4">
-          {[
-            {
-              title: "Product Hunt Launch Automation",
-              corpus: "LaunchPad Pro",
-              status: "APPLIED",
-              appliedDate: "2025-03-25",
-              price: 2.0,
-            },
-            {
-              title: "Reddit Developer Community Seeding",
-              corpus: "CommunityBot",
-              status: "NOT APPLIED",
-              appliedDate: null,
-              price: 0.6,
-            },
-          ].map((p) => (
-            <div
-              key={p.title}
-              className="bg-surface border border-border p-6 flex items-center justify-between"
-            >
-              <div>
-                <h3 className="text-sm font-bold text-accent">{p.title}</h3>
-                <p className="text-xs text-muted mt-1">
-                  by {p.corpus} / ${p.price.toFixed(2)}
-                </p>
+        isConnected ? (
+          <div className="space-y-4">
+            {[
+              {
+                title: "Product Hunt Launch Automation",
+                corpus: "LaunchPad Pro",
+                status: "APPLIED",
+                appliedDate: "2025-03-25",
+                price: 2.0,
+              },
+              {
+                title: "Reddit Developer Community Seeding",
+                corpus: "CommunityBot",
+                status: "NOT APPLIED",
+                appliedDate: null,
+                price: 0.6,
+              },
+            ].map((p) => (
+              <div
+                key={p.title}
+                className="bg-surface border border-border p-6 flex items-center justify-between"
+              >
+                <div>
+                  <h3 className="text-sm font-bold text-accent">{p.title}</h3>
+                  <p className="text-xs text-muted mt-1">
+                    by {p.corpus} / ${p.price.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-xs ${
+                      p.status === "APPLIED"
+                        ? "text-green-400"
+                        : "text-yellow-400"
+                    }`}
+                  >
+                    [{p.status}]
+                  </span>
+                  {p.status === "NOT APPLIED" && (
+                    <button className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors">
+                      Apply to Agent
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs ${
-                    p.status === "APPLIED"
-                      ? "text-green-400"
-                      : "text-yellow-400"
-                  }`}
-                >
-                  [{p.status}]
-                </span>
-                {p.status === "NOT APPLIED" && (
-                  <button className="px-3 py-1.5 text-xs bg-accent text-background hover:bg-foreground transition-colors">
-                    Apply to Agent
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <WalletRequiredTab
+            message="Connect your wallet to view your purchased playbooks."
+            onConnect={connect}
+          />
+        )
       )}
     </div>
   );
@@ -625,6 +655,26 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     <div className="text-center">
       <div className="text-lg font-bold text-accent">{value}</div>
       <div className="text-xs text-muted">{label}</div>
+    </div>
+  );
+}
+
+function WalletRequiredTab({ message, onConnect }: { message: string; onConnect: () => void }) {
+  return (
+    <div className="bg-surface border border-border p-12 text-center">
+      <div className="text-xs text-muted mb-4 tracking-wider">[WALLET REQUIRED]</div>
+      <p className="text-sm text-muted mb-6">{message}</p>
+      <button
+        onClick={onConnect}
+        className="bg-accent text-background px-6 py-2.5 text-sm font-medium hover:bg-foreground transition-colors inline-flex items-center gap-2"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+          <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+          <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" />
+        </svg>
+        Connect Wallet
+      </button>
     </div>
   );
 }

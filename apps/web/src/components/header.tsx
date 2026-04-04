@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const NAV_ITEMS = [
-  { href: "/launch", label: "Launchpad" },
-  { href: "/explore", label: "Explore" },
-  { href: "/marketplace", label: "Marketplace" },
-  { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/launch", label: "Launchpad", requiresWallet: true },
+  { href: "/explore", label: "Explore", requiresWallet: false },
+  { href: "/marketplace", label: "Marketplace", requiresWallet: false },
+  { href: "/leaderboard", label: "Leaderboard", requiresWallet: false },
+  { href: "/dashboard", label: "Dashboard", requiresWallet: true },
 ];
 
 export function Header() {
@@ -32,13 +32,16 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`text-sm transition-colors ${
+                className={`text-sm transition-colors flex items-center gap-1.5 ${
                   pathname === item.href
                     ? "text-accent"
                     : "text-muted hover:text-foreground"
                 }`}
               >
                 {item.label}
+                {item.requiresWallet && !primaryWallet && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" title="Wallet required" />
+                )}
               </Link>
             ))}
           </nav>
@@ -59,7 +62,7 @@ export function Header() {
         ) : (
           <button
             onClick={() => setShowAuthFlow(true)}
-            className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors"
+            className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
           >
             Connect Wallet
           </button>

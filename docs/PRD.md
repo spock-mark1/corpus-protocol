@@ -29,7 +29,7 @@ All concepts in Corpus Protocol derive from the Latin root **Corpus (body)**, th
 | Incorporation | **Corpus Genesis** | Agent corporation establishment process |
 | Shareholder | **Patron** | Owner/investor of a Corpus |
 | Board of Directors | **Kernel** | Policy layer (revenue reinvestment ratios, etc.) |
-| Equity | **Signal** | Equity token (HTS-based) |
+| Equity | **Pulse** | Equity token (HTS-based) |
 | CEO | **Prime Agent** | Lead agent, autonomous GTM execution entity |
 
 ---
@@ -64,16 +64,16 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
                        │
 ┌──────────────────────┴────────────────────────────────┐
 │  Hedera Network (Decentralized)                        │
-│  Signal Token (HTS) · HBAR · x402 (USDC)              │
+│  Pulse Token (HTS) · HBAR · x402 (USDC)              │
 └───────────────────────────────────────────────────────┘
 ```
 
 | Layer | Platform | Responsibility |
 |---|---|---|
-| **Corpus Web** | Vercel | UI, API, Corpus registration, Signal issuance, Commerce Storefront |
+| **Corpus Web** | Vercel | UI, API, Corpus registration, Pulse issuance, Commerce Storefront |
 | **Database** | Supabase | Corpus metadata, activity logs, revenue records, commerce queue |
 | **Local Agent** | User PC | Prime Agent execution, GTM (local browser), x402 signing |
-| **Hedera** | Decentralized | Signal token (HTS), on-chain transaction records |
+| **Hedera** | Decentralized | Pulse token (HTS), on-chain transaction records |
 
 ### 4.2 Why Local Execution
 
@@ -90,7 +90,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 
 | Component | Location | Role | Technology |
 |---|---|---|---|
-| Corpus Genesis Engine | Web | Corpus registration + Signal token issuance | Next.js, HTS |
+| Corpus Genesis Engine | Web | Corpus registration + Pulse token issuance | Next.js, HTS |
 | Patron Registry | Web | Equity structure management, distribution status | Prisma, Supabase, HTS |
 | Kernel Policy Engine | Web | Approval thresholds, GTM budget limits, operational policies | Config API |
 | Commerce Storefront | Web | Per-Corpus x402 service endpoint + job queue | Next.js API Routes, Supabase |
@@ -108,7 +108,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
         │
         ▼
 2. Corpus Genesis executes
-   ├── Issue Signal (equity) token via HTS
+   ├── Issue Pulse (equity) token via HTS
    ├── Configure Patron equity structure
    │   - Developer: X%
    │   - Early Investors: Y%
@@ -237,7 +237,7 @@ Local Agent A                  Web (Storefront)              Local Agent B
 | Time | Action |
 |---|---|
 | 0:00 - 0:30 | Enter product API key + configure GTM target channels |
-| 0:30 - 1:00 | Create Corpus (verify Signal token on-chain issuance) |
+| 0:30 - 1:00 | Create Corpus (verify Pulse token on-chain issuance) |
 | 1:00 - 1:30 | Set Patron equity structure + approval thresholds |
 | 1:30 - 2:00 | `corpus-agent start` → Prime Agent requests first posting approval → Approve → Post to X via local browser |
 | 2:00 - 2:30 | Agent performs autonomous research + mention handling via local browser (auto) |
@@ -252,7 +252,7 @@ Local Agent A                  Web (Storefront)              Local Agent B
 | Track | Rationale | Target |
 |---|---|---|
 | **Hedera — AI & Agentic Payments** | Prime Agent autonomous payments + Agent Kit utilization | $6K |
-| **Hedera — Tokenization** | Signal token = HTS tokenization, Patron equity structure | $2.5K |
+| **Hedera — Tokenization** | Pulse token = HTS tokenization, Patron equity structure | $2.5K |
 | **ARC — Agentic Nanopayments** | Inter-Corpus x402 transactions, agent-to-agent USDC nanopayments | $6K |
 | **World — Agent Kit** | World ID trust layer for Prime Agent | $8K |
 | **World — World ID 4.0** | Patron 1-person-1-vote, Kernel governance uniqueness | $8K |
@@ -270,7 +270,7 @@ Frontend for Corpus Genesis. The entry point for developers to establish an agen
 | Section | Functionality |
 |---|---|
 | Product Input | API key/endpoint input, product description, category selection |
-| Signal Configuration | Token name/symbol setup, total supply, initial price |
+| Pulse Configuration | Token name/symbol setup, total supply, initial price |
 | Patron Structure | Equity distribution slider (Developer / Early Investors / Treasury) |
 | Kernel Policy | Approval thresholds (amount, action type), GTM budget limits, operational parameters |
 | Prime Agent Setup | Persona settings, target audience, tone & voice, GTM target channels (X, LinkedIn, Reddit, etc.) |
@@ -292,10 +292,10 @@ Competitive dashboard showing Corpus ecosystem performance rankings.
 
 | Tab | Ranking Criteria |
 |---|---|
-| Top Corpus | Revenue, Signal market cap, number of Patrons |
+| Top Corpus | Revenue, Pulse market cap, number of Patrons |
 | Top Patrons | Total portfolio value, ROI, number of participating Corpuses |
 | Top Prime Agents | Conversion rate, content created, inter-agent transactions |
-| Trending | 24h/7d Signal price change rate, new Patron inflow |
+| Trending | 24h/7d Pulse price change rate, new Patron inflow |
 
 ### 10.4 Patron Dashboard (`/dashboard`)
 
@@ -303,13 +303,13 @@ Portfolio management hub for Patrons (investors).
 
 | Section | Functionality |
 |---|---|
-| Portfolio Overview | Held Signal list, total value, return rate chart |
+| Portfolio Overview | Held Pulse list, total value, return rate chart |
 | Revenue Stream | Per-Corpus revenue distribution details, claimable amount, distribution history |
 | Approval Queue | Prime Agent approval request list, approve/reject actions, view alternatives |
 | Corpus Management | Kernel voting for participating Corpuses, policy change proposals |
 | Activity Feed | Agent activity log, approval history, Corpus status changes |
 | Agent Status | Local Agent online/offline status, last activity timestamp |
-| On-chain Status | Hedera account balance, Signal token holdings (read-only) |
+| On-chain Status | Hedera account balance, Pulse token holdings (read-only) |
 
 ### 10.5 Global Layout
 
@@ -324,7 +324,7 @@ Portfolio management hub for Patrons (investors).
 ## 11. MVP Scope (Hackathon)
 
 ### Must Have
-- [ ] **Launchpad** — Full Corpus Genesis flow (API input → Signal issuance → Patron setup → GTM channel configuration)
+- [ ] **Launchpad** — Full Corpus Genesis flow (API input → Pulse issuance → Patron setup → GTM channel configuration)
 - [ ] **Explore** — Corpus list + detail page
 - [ ] **Patron Dashboard** — Portfolio & approval queue & activity feed
 - [ ] **Prime Agent CLI** — `pip install corpus-agent` → `corpus-agent start` for local execution
@@ -408,7 +408,7 @@ Dashboard, Launchpad, Explore, Leaderboard. Frontend + REST API + Commerce Store
 | `@worldcoin/idkit` | World ID widget | Patron uniqueness verification |
 | `@dynamic-labs/sdk-react-core` | Dynamic wallet SDK | Multi-wallet connection (HashPack, MetaMask, WalletConnect) |
 | `@dynamic-labs/wallet-connect` | WalletConnect connector | WalletConnect protocol support |
-| `recharts` | Signal charts, revenue graphs | Dashboard/Leaderboard |
+| `recharts` | Pulse charts, revenue graphs | Dashboard/Leaderboard |
 | `d3-force` | Commerce Graph node visualization | Ecosystem page |
 | `framer-motion` | Animations | Launchpad step transitions |
 
@@ -592,7 +592,7 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 
 ```
 1. User configures Corpus + selects GTM channels on Launchpad
-2. Web issues Signal token via HTS (on-chain)
+2. Web issues Pulse token via HTS (on-chain)
 3. Web saves Corpus to Supabase + issues API Key
 4. CLI installation & execution instructions displayed to user
 5. User runs corpus-agent start locally
@@ -611,7 +611,7 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 | `hedera-sdk` (Python) | Local Agent | On-chain transactions from agent | AI & Agentic Payments |
 
 **HTS Usage (Tokenization Track):**
-- Signal token issuance — Executed on Web during Genesis
+- Pulse token issuance — Executed on Web during Genesis
 - Patron equity distribution — Token transfer on Web
 - Revenue distribution — Local Agent reports revenue → Web executes scheduled transaction
 

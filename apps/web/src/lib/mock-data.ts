@@ -8,7 +8,7 @@ export interface CorpusItem {
   description: string;
   patrons: number;
   revenue: string;
-  signalPrice: string;
+  pulsePrice: string;
   status: CorpusStatus;
   hederaTokenId: string;
   totalSupply: number;
@@ -36,7 +36,7 @@ export interface Activity {
 export interface Patron {
   address: string;
   role: "Creator" | "Investor" | "Treasury";
-  signalAmount: number;
+  pulseAmount: number;
   share: number;
 }
 
@@ -49,7 +49,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "Autonomous content generation and distribution agent optimized for B2B SaaS growth campaigns.",
     patrons: 142,
     revenue: "$12,840",
-    signalPrice: "$0.34",
+    pulsePrice: "$0.34",
     status: "Active",
     hederaTokenId: "0.0.4812753",
     totalSupply: 1000000,
@@ -72,7 +72,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "Full-stack code generation corpus specializing in TypeScript microservices and API scaffolding.",
     patrons: 89,
     revenue: "$8,210",
-    signalPrice: "$0.71",
+    pulsePrice: "$0.71",
     status: "Active",
     hederaTokenId: "0.0.4813001",
     totalSupply: 500000,
@@ -95,7 +95,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "Deep research agent that synthesizes academic papers, patents, and market reports into actionable briefs.",
     patrons: 203,
     revenue: "$24,500",
-    signalPrice: "$1.12",
+    pulsePrice: "$1.12",
     status: "Active",
     hederaTokenId: "0.0.4811200",
     totalSupply: 2000000,
@@ -118,7 +118,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "UI component generation and design system maintenance agent for React-based applications.",
     patrons: 67,
     revenue: "$5,430",
-    signalPrice: "$0.22",
+    pulsePrice: "$0.22",
     status: "Inactive",
     hederaTokenId: "0.0.4814500",
     totalSupply: 750000,
@@ -141,7 +141,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "Multi-channel attribution modeling and campaign optimization agent with real-time bid adjustments.",
     patrons: 318,
     revenue: "$41,200",
-    signalPrice: "$2.05",
+    pulsePrice: "$2.05",
     status: "Active",
     hederaTokenId: "0.0.4810050",
     totalSupply: 5000000,
@@ -164,7 +164,7 @@ export const CORPUS_DATA: CorpusItem[] = [
       "ETL pipeline orchestration corpus that automates data cleaning, transformation, and warehouse loading.",
     patrons: 54,
     revenue: "$3,780",
-    signalPrice: "$0.15",
+    pulsePrice: "$0.15",
     status: "Inactive",
     hederaTokenId: "0.0.4815800",
     totalSupply: 400000,
@@ -203,9 +203,9 @@ export function getActivities(corpusId: string): Activity[] {
 
 export function getPatrons(corpus: CorpusItem): Patron[] {
   return [
-    { address: "0x7a3F...e4B2", role: "Creator", signalAmount: corpus.totalSupply * corpus.creatorShare / 100, share: corpus.creatorShare },
-    { address: "0x1bC9...8f21", role: "Investor", signalAmount: corpus.totalSupply * corpus.investorShare / 100, share: corpus.investorShare },
-    { address: "0x9dE4...3a07", role: "Investor", signalAmount: Math.floor(corpus.totalSupply * corpus.investorShare / 200), share: Math.floor(corpus.investorShare / 2) },
-    { address: "0xTreasury", role: "Treasury", signalAmount: corpus.totalSupply * corpus.treasuryShare / 100, share: corpus.treasuryShare },
+    { address: "0x7a3F...e4B2", role: "Creator", pulseAmount: corpus.totalSupply * corpus.creatorShare / 100, share: corpus.creatorShare },
+    { address: "0x1bC9...8f21", role: "Investor", pulseAmount: corpus.totalSupply * corpus.investorShare / 100, share: corpus.investorShare },
+    { address: "0x9dE4...3a07", role: "Investor", pulseAmount: Math.floor(corpus.totalSupply * corpus.investorShare / 200), share: Math.floor(corpus.investorShare / 2) },
+    { address: "0xTreasury", role: "Treasury", pulseAmount: corpus.totalSupply * corpus.treasuryShare / 100, share: corpus.treasuryShare },
   ];
 }

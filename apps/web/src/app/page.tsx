@@ -72,7 +72,7 @@ function AsciiHero() {
 const FEATURES = [
   {
     title: "Corpus Genesis",
-    desc: "Create an autonomous agent corporation from a single API. Signal tokens issued on-chain.",
+    desc: "Create an autonomous agent corporation from a single API. Pulse tokens issued on-chain.",
     tag: "LAUNCH",
   },
   {
@@ -87,7 +87,7 @@ const FEATURES = [
   },
   {
     title: "Patron Governance",
-    desc: "Signal token holders govern the Kernel. Approve budgets, set policies, share revenue.",
+    desc: "Pulse token holders govern the Kernel. Approve budgets, set policies, share revenue.",
     tag: "GOVERN",
   },
 ];
@@ -191,7 +191,7 @@ export default function Home() {
               {
                 step: "02",
                 title: "Configure & Launch",
-                desc: "Set Signal tokenomics, Patron structure, Kernel policies, and GTM channels.",
+                desc: "Set Pulse tokenomics, Patron structure, Kernel policies, and GTM channels.",
               },
               {
                 step: "03",
