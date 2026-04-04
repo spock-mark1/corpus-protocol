@@ -1,73 +1,8 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef } from "react";
-
-function AsciiHero() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const W = 900;
-    const H = 400;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.scale(dpr, dpr);
-
-    const chars = ".:-=+*#%@";
-    const fontSize = 14;
-    const cols = Math.floor(W / (fontSize * 0.6));
-    const rows = Math.floor(H / fontSize);
-
-    let frame = 0;
-    let animId: number;
-
-    function draw() {
-      ctx!.fillStyle = "#0a0a0a";
-      ctx!.fillRect(0, 0, W, H);
-      ctx!.font = `${fontSize}px monospace`;
-
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const cx = x / cols - 0.5;
-          const cy = y / rows - 0.5;
-          const dist = Math.sqrt(cx * cx + cy * cy);
-          const wave = Math.sin(dist * 12 - frame * 0.03) * 0.5 + 0.5;
-          const noise =
-            Math.sin(x * 0.3 + frame * 0.01) *
-            Math.cos(y * 0.3 + frame * 0.02);
-          const val = wave * 0.7 + noise * 0.3;
-          const idx = Math.floor(
-            Math.max(0, Math.min(1, val)) * (chars.length - 1)
-          );
-
-          const alpha = 0.15 + val * 0.5;
-          ctx!.fillStyle = `rgba(212, 212, 212, ${alpha})`;
-          ctx!.fillText(chars[idx], x * fontSize * 0.6, y * fontSize + fontSize);
-        }
-      }
-      frame++;
-      animId = requestAnimationFrame(draw);
-    }
-
-    draw();
-    return () => cancelAnimationFrame(animId);
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="w-full max-w-[900px] h-[400px] opacity-60"
-    />
-  );
-}
+import { db } from "@/db";
+import { cppCorpus, cppRevenues, cppActivities } from "@/db/schema";
+import { sql, eq } from "drizzle-orm";
+import { HeroClient } from "./hero-client";
 
 const FEATURES = [
   {
@@ -92,14 +27,38 @@ const FEATURES = [
   },
 ];
 
-const STATS = [
-  { label: "Active Corpus", value: "127" },
-  { label: "Total Revenue", value: "$482K" },
-  { label: "Agents Running", value: "89" },
-  { label: "Transactions", value: "12.4K" },
-];
+async function getStats() {
+  const [activeCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(cppCorpus)
+    .where(eq(cppCorpus.status, "Active"));
 
-export default function Home() {
+  const [revenueSum] = await db
+    .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+    .from(cppRevenues);
+
+  const [agentCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(cppCorpus)
+    .where(eq(cppCorpus.agentOnline, true));
+
+  const [activityCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(cppActivities);
+
+  const revenue = Number(revenueSum.total);
+  const fmtRevenue = revenue >= 1000 ? `$${(revenue / 1000).toFixed(1)}K` : `$${revenue.toFixed(0)}`;
+
+  return [
+    { label: "Active Corpus", value: String(activeCount.count) },
+    { label: "Total Revenue", value: fmtRevenue },
+    { label: "Agents Running", value: String(agentCount.count) },
+    { label: "Activities", value: activityCount.count >= 1000 ? `${(activityCount.count / 1000).toFixed(1)}K` : String(activityCount.count) },
+  ];
+}
+
+export default async function Home() {
+  const STATS = await getStats();
   return (
     <div className="flex flex-col">
       {/* Hero */}
@@ -130,7 +89,7 @@ export default function Home() {
             Explore
           </Link>
         </div>
-        <AsciiHero />
+        <HeroClient />
       </section>
 
       {/* Stats */}

@@ -28,6 +28,8 @@ interface CorpusDetail {
   patronCount: number;
   patrons: { walletAddress: string; role: string; pulseAmount: number; share: number; status: string }[];
   activities: { id: string; type: string; content: string; channel: string; status: string; timestamp: string }[];
+  revenueHistory: { month: string; amount: number }[];
+  agentStats: { postsToday: number; repliesToday: number; researchesToday: number };
 }
 
 const TABS = ["Overview", "Activity", "Patrons", "Revenue", "Agent"] as const;
@@ -82,15 +84,8 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     }
   }, [address, corpus.id, isPatron, myPulseBalance]);
 
-  const REVENUE_HISTORY = [
-    { month: "Oct", amount: 1200 },
-    { month: "Nov", amount: 2100 },
-    { month: "Dec", amount: 1800 },
-    { month: "Jan", amount: 3200 },
-    { month: "Feb", amount: 2900 },
-    { month: "Mar", amount: 4100 },
-  ];
-  const maxRevenue = Math.max(...REVENUE_HISTORY.map((r) => r.amount));
+  const REVENUE_HISTORY = corpus.revenueHistory;
+  const maxRevenue = Math.max(...REVENUE_HISTORY.map((r) => r.amount), 1);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
@@ -404,22 +399,18 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                 {corpus.agentOnline ? "[ONLINE]" : "[OFFLINE]"}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="text-muted text-xs">Uptime</span>
-                <p className="text-foreground mt-1">14d 7h 23m</p>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-muted text-xs">Posts Today</span>
-                <p className="text-foreground mt-1">4</p>
+                <p className="text-foreground mt-1">{corpus.agentStats.postsToday}</p>
               </div>
               <div>
                 <span className="text-muted text-xs">Replies Today</span>
-                <p className="text-foreground mt-1">12</p>
+                <p className="text-foreground mt-1">{corpus.agentStats.repliesToday}</p>
               </div>
               <div>
                 <span className="text-muted text-xs">Researches Today</span>
-                <p className="text-foreground mt-1">3</p>
+                <p className="text-foreground mt-1">{corpus.agentStats.researchesToday}</p>
               </div>
             </div>
           </div>
@@ -430,9 +421,6 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
               <Row label="Persona" value={corpus.persona} />
               <Row label="Target Audience" value={corpus.targetAudience} />
               <Row label="Channels" value={corpus.channels.join(", ")} />
-              <Row label="Posting Interval" value="Every 4 hours" />
-              <Row label="Research Interval" value="Every 12 hours" />
-              <Row label="Mention Check" value="Every 5 minutes" />
             </div>
           </div>
 
@@ -443,7 +431,6 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
               <div className="text-muted mt-2">Corpus:    {corpus.name}</div>
               <div className="text-muted">Token:     {corpus.hederaTokenId}</div>
               <div className="text-muted">Status:    {corpus.agentOnline ? "ONLINE" : "OFFLINE"}</div>
-              <div className="text-muted">Next task: Content generation in 42m</div>
             </div>
           </div>
         </div>

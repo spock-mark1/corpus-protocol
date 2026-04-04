@@ -28,6 +28,29 @@ export default async function CorpusDetailPage({
     0
   );
 
+  // Aggregate revenue by month
+  const revenueByMonth = new Map<string, number>();
+  for (const r of corpus.revenues) {
+    const d = new Date(r.createdAt);
+    const key = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+    revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + Number(r.amount));
+  }
+  const revenueHistory = Array.from(revenueByMonth.entries())
+    .map(([month, amount]) => ({ month, amount: Math.round(amount * 100) / 100 }))
+    .slice(-6);
+
+  // Agent activity stats (today)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayActivities = corpus.activities.filter(
+    (a) => new Date(a.createdAt) >= todayStart
+  );
+  const agentStats = {
+    postsToday: todayActivities.filter((a) => a.type === "post").length,
+    repliesToday: todayActivities.filter((a) => a.type === "reply").length,
+    researchesToday: todayActivities.filter((a) => a.type === "research").length,
+  };
+
   // Serialize for client
   const data = {
     id: corpus.id,
@@ -66,6 +89,8 @@ export default async function CorpusDetailPage({
       status: a.status,
       timestamp: getRelativeTime(a.createdAt),
     })),
+    revenueHistory,
+    agentStats,
   };
 
   return <CorpusDetailClient corpus={data} />;
