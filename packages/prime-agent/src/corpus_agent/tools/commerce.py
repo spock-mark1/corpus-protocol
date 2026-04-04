@@ -134,6 +134,10 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
     if not submit_result:
         return {"error": "Commerce submission failed"}
 
+    # Server returns error JSON if payment verification failed
+    if "error" in submit_result:
+        return {"error": submit_result["error"], "details": submit_result.get("details", "")}
+
     job_id = submit_result.get("jobId") or submit_result.get("id", "")
 
     # Track in local DB

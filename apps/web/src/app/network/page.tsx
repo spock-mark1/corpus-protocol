@@ -9,6 +9,9 @@ import {
 import { desc, sql, eq } from "drizzle-orm";
 import { NetworkClient } from "./network-client";
 
+// Always fetch fresh data on every request (no caching)
+export const dynamic = "force-dynamic";
+
 export default async function NetworkPage() {
   // --- Commerce Jobs (service trades between agents) ---
   const jobs = await db
@@ -133,12 +136,11 @@ export default async function NetworkPage() {
   );
 
   // --- Aggregate stats ---
-  const completedJobs = jobs.filter((j) => j.status === "completed");
-  const totalServiceVolume = completedJobs.reduce((s, j) => s + Number(j.amount), 0);
+  const totalServiceVolume = jobs.reduce((s, j) => s + Number(j.amount), 0);
   const totalPlaybookVolume = playbookTrades.reduce((s, p) => s + Number(p.playbookPrice), 0);
 
   const stats = {
-    totalTransactions: completedJobs.length + playbookTrades.length,
+    totalTransactions: jobs.length + playbookTrades.length,
     totalVolume: totalServiceVolume + totalPlaybookVolume,
     activeAgents: allCorpuses.filter((c) => c.agentOnline).length,
     totalAgents: allCorpuses.length,
