@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/components/wallet-gate";
-import { WorldIdVerify } from "@/components/world-id-verify";
+import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
 
 interface CorpusDetail {
   id: string;
@@ -142,7 +142,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                 </span>
               ) : (
                 <WorldIdVerify
-                  action={`become-patron-${corpus.id}`}
+                  action={WORLD_ACTIONS.patron}
                   signal={address ?? undefined}
                   onSuccess={(proof) => handleBecomePatron(proof)}
                 >

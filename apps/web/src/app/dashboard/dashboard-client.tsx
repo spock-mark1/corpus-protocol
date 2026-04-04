@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { WalletGate, useWallet } from "@/components/wallet-gate";
-import { WorldIdVerify } from "@/components/world-id-verify";
+import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
 
 interface Props {
   stats: {
@@ -151,7 +151,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <WorldIdVerify
-                      action={`approve-${item.corpusId}-${item.id}`}
+                      action={WORLD_ACTIONS.approve}
                       signal={address ?? undefined}
                       onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
                     >
@@ -166,7 +166,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                       )}
                     </WorldIdVerify>
                     <WorldIdVerify
-                      action={`approve-${item.corpusId}-${item.id}`}
+                      action={WORLD_ACTIONS.approve}
                       signal={address ?? undefined}
                       onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
                     >

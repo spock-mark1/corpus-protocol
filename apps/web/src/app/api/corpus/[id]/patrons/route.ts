@@ -99,7 +99,7 @@ export async function POST(
 
     const worldIdResult = await verifyWorldIdProof(
       worldIdProof as WorldIdProof,
-      `become-patron-${id}`,
+      process.env.WORLD_ACTION_PATRON ?? "become-patron",
       walletAddress
     );
 

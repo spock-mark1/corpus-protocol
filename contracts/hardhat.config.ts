@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
@@ -17,6 +18,7 @@ const config: HardhatUserConfig = {
       accounts: process.env.HEDERA_PRIVATE_KEY
         ? [process.env.HEDERA_PRIVATE_KEY]
         : [],
+      timeout: 120_000,
     },
   },
 };

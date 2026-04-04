@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "corpus-agent"
 version = "0.1.0"
 description = "Prime Agent CLI for Corpus Protocol — autonomous GTM agent"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "openai>=1.30",
     "hedera-agent-kit>=3.3",

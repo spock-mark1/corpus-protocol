@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/Users/spock/Documents/Github/corpus/packages/contracts/contracts/CorpusNameService.sol": {
+    "/Users/spock/Documents/Github/corpus/contracts/contracts/CorpusNameService.sol": {
       "lastModificationDate": 1775294528121,
       "contentHash": "1a83339c97aa536739686592751c1c70",
       "sourceName": "contracts/CorpusNameService.sol",
@@ -40,7 +40,7 @@
         "CorpusNameService"
       ]
     },
-    "/Users/spock/Documents/Github/corpus/packages/contracts/contracts/CorpusRegistry.sol": {
+    "/Users/spock/Documents/Github/corpus/contracts/contracts/CorpusRegistry.sol": {
       "lastModificationDate": 1775294434917,
       "contentHash": "d7cf972e6a3c13fbaa50c57412858229",
       "sourceName": "contracts/CorpusRegistry.sol",
@@ -79,7 +79,7 @@
         "CorpusRegistry"
       ]
     },
-    "/Users/spock/Documents/Github/corpus/packages/contracts/contracts/interfaces/IHederaTokenService.sol": {
+    "/Users/spock/Documents/Github/corpus/contracts/contracts/interfaces/IHederaTokenService.sol": {
       "lastModificationDate": 1775294373229,
       "contentHash": "613e899854ab74bba4763852ca4ffa0a",
       "sourceName": "contracts/interfaces/IHederaTokenService.sol",
@@ -116,7 +116,7 @@
         "IHederaTokenService"
       ]
     },
-    "/Users/spock/Documents/Github/corpus/packages/contracts/contracts/mocks/MockHederaTokenService.sol": {
+    "/Users/spock/Documents/Github/corpus/contracts/contracts/mocks/MockHederaTokenService.sol": {
       "lastModificationDate": 1775294388506,
       "contentHash": "4d5b798f6bd28201465f762eed7e2d63",
       "sourceName": "contracts/mocks/MockHederaTokenService.sol",

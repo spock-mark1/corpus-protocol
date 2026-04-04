@@ -17,13 +17,13 @@
 | 0:00 - 0:30 | Enter product + configure GTM channels → Creator signs `createCorpus` tx |
 | 0:30 - 1:00 | Pulse token minted on-chain via HTS precompile → 97% to Creator, 3% launchpad fee to protocol wallet **(Hedera Tokenization)** |
 | 1:00 - 1:30 | `corpus-agent start` → Agent requests first posting approval → Approve → Post to X via local Chrome |
-| 1:30 - 2:00 | Agent autonomously decides: "need an image" → discovers Corpus B service → x402 $0.05 USDC auto-payment on Base → image received → posts with image **(ARC Nanopayments)** |
-| 2:00 - 2:30 | Agent judges low engagement → purchases GTM Playbook via x402 → applies new strategy → next post uses Playbook templates **(ARC — self-evolving agent)** |
-| 2:30 - 3:00 | Revenue from sold service → Agent autonomously distributes USDC dividends to Patrons **(Revenue Distribution)** |
+| 1:30 - 2:00 | Agent autonomously decides: "need an image" → discovers Corpus B service → x402 $0.05 USDC gas-free payment via Circle Nanopayments on Arc → image received → posts with image **(ARC Nanopayments)** |
+| 2:00 - 2:30 | Agent judges low engagement → purchases GTM Playbook via x402 on Arc → applies new strategy → next post uses Playbook templates **(ARC — self-evolving agent)** |
+| 2:30 - 3:00 | Revenue from sold service → Agent autonomously distributes USDC dividends to Patrons via Circle Wallets **(Revenue Distribution)** |
 
 **Judge impact:**
 - **Hedera judges:** Agent autonomously manages a token economy — issues equity (Pulse), handles governance on Hedera
-- **ARC judges:** Agent-to-agent HTTP 402 nanopayments (USDC on Base) — service purchases + Playbook trading + USDC dividend distribution, self-evolving strategy
+- **ARC judges:** Agent-to-agent HTTP 402 nanopayments (USDC on Arc via Circle Nanopayments) — gas-free service purchases + Playbook trading + USDC dividend distribution, self-evolving strategy. Uses Circle Developer-Controlled Wallets + Nanopayments API + x402 protocol
 - **Both:** The agent operates the user's actual browser, makes autonomous payment decisions with human-in-the-loop for high-value transactions
 
 ## 9. Prize Strategy
@@ -32,7 +32,7 @@
 |---|---|---|---|
 | **Hedera — AI & Agentic Payments** | Hedera Agent Kit autonomous Pulse token operations, governance, equity management | ARC (different chain, different token, different purpose) | $6K |
 | **Hedera — Tokenization** | Pulse token (HTS), Patron equity structure, governance voting weight | ARC (Pulse is internal equity, not commerce) | $2.5K |
-| **ARC — Agentic Nanopayments** | x402 HTTP 402 protocol, USDC on Base, inter-Corpus service marketplace + Playbook trading + USDC dividend distribution | Hedera (different chain, different token, different purpose) | $6K |
+| **ARC — Agentic Nanopayments** | x402 + Circle Nanopayments on Arc, gas-free USDC agent-to-agent commerce, inter-Corpus service marketplace + Playbook trading + USDC dividend distribution. Circle Developer tools: Developer-Controlled Wallets, Nanopayments API | Hedera (different chain, different token, different purpose) | $6K |
 | **World — Agent Kit** | World ID trust layer for Prime Agent | — | $8K |
 | **World — World ID 4.0** | Patron 1-person-1-vote, Kernel governance uniqueness | — | $8K |
 
@@ -40,4 +40,4 @@
 
 **Clean separation pitch:**
 - Hedera = "The agent's **equity cap table and governance**" (Pulse on Hedera)
-- ARC = "The agent's **procurement department and bank account**" (USDC on Base via x402)
+- ARC = "The agent's **procurement department and bank account**" (USDC on Arc via x402 + Circle Nanopayments)

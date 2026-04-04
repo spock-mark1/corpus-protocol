@@ -17,6 +17,7 @@
     "@dynamic-labs/sdk-react-core": "^4.75.0",
     "@dynamic-labs/wallet-connect": "^4.75.0",
     "@paralleldrive/cuid2": "^3.3.0",
+    "@worldcoin/idkit": "^4.0.11",
     "drizzle-orm": "^0.45.2",
     "ethers": "^6.16.0",
     "framer-motion": "^12.38.0",

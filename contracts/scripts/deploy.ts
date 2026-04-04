@@ -11,16 +11,24 @@ async function main() {
   const protocolWallet = process.env.CORPUS_PROTOCOL_WALLET ?? deployer.address;
   console.log("Protocol wallet:", protocolWallet);
 
+  // Hedera EVM requires explicit gas overrides
+  const gasOverrides = {
+    gasLimit: 5_000_000,
+    gasPrice: ethers.parseUnits("1500", "gwei"),  // Hedera testnet needs high gas price
+  };
+
   // 1. Deploy CorpusRegistry (with HTS precompile + protocol wallet)
+  console.log("\nDeploying CorpusRegistry...");
   const Registry = await ethers.getContractFactory("CorpusRegistry");
-  const registry = await Registry.deploy(HTS_PRECOMPILE, protocolWallet);
+  const registry = await Registry.deploy(HTS_PRECOMPILE, protocolWallet, gasOverrides);
   await registry.waitForDeployment();
   const registryAddr = await registry.getAddress();
   console.log("CorpusRegistry deployed to:", registryAddr);
 
   // 2. Deploy CorpusNameService (linked to Registry)
+  console.log("\nDeploying CorpusNameService...");
   const NameService = await ethers.getContractFactory("CorpusNameService");
-  const nameService = await NameService.deploy(registryAddr);
+  const nameService = await NameService.deploy(registryAddr, gasOverrides);
   await nameService.waitForDeployment();
   const nameServiceAddr = await nameService.getAddress();
   console.log("CorpusNameService deployed to:", nameServiceAddr);

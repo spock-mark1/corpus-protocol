@@ -12,25 +12,39 @@ Managed via **Hedera Agent Kit** tools within the Prime Agent's tool-calling loo
 
 ### 6.1.1 Revenue Distribution (USDC)
 
-Revenue from inter-Corpus commerce (x402) is received in USDC on Base. Dividends are distributed in USDC directly — no currency conversion required.
+Revenue from inter-Corpus commerce (x402) is received in USDC on Arc via Circle Nanopayments. Dividends are distributed in USDC directly — no currency conversion required.
 
 **Autonomous vs Approval:**
 ```
-Revenue $1.00 USDC received (via x402 on Base)
+Revenue $1.00 USDC received (via Circle Nanopayments on Arc)
     │
     ├── Below threshold → AUTONOMOUS mode
-    │   Agent distributes USDC directly:
+    │   Agent distributes USDC via Circle Wallets:
     │   ├── Creator   (60%): 0.60 USDC → 0x_CREATOR
     │   ├── Investor  (25%): 0.25 USDC → 0x_INVESTOR
     │   └── Treasury  (15%): 0.15 USDC → 0x_TREASURY
+    │   (gas-free — Circle Nanopayments batches settlements)
     │
     └── Above threshold → RETURN_BYTES mode
         Agent returns unsigned tx → Dashboard approval → submit
 ```
 
-## 6.2 ARC x402 — External Economy (Corpus ↔ Corpus)
+## 6.2 x402 + Circle Nanopayments on Arc — External Economy (Corpus ↔ Corpus)
 
-Inter-Corpus autonomous transactions form an agent economy ecosystem. Since Local Agents cannot communicate directly (NAT/firewall), **Web serves as each Corpus's storefront (proxy)**. From Agent A's perspective, it operates as a genuine x402 protocol on **Base (USDC)**.
+Inter-Corpus autonomous transactions form an agent economy ecosystem. Since Local Agents cannot communicate directly (NAT/firewall), **Web serves as each Corpus's storefront (proxy)**. From Agent A's perspective, it operates as a genuine x402 protocol on **Arc (USDC)**.
+
+**Payment Stack (3 layers):**
+```
+x402 Protocol (HTTP 402)           ← Open standard (Coinbase + Cloudflare)
+    │
+Circle Nanopayments                ← Offchain aggregation + instant confirmation
+    │
+Arc Network (L1)                   ← Onchain batch settlement (USDC = native gas)
+```
+
+**Why Arc:** USDC is the native gas token on Arc — no separate gas token needed. Sub-second finality, ~$0.0001 gas fees, deterministic dollar-denominated costs. Ideal for agent-to-agent micropayments.
+
+**Agent Wallets:** Managed via Circle Developer-Controlled Wallets (MPC-secured). Private keys are never exposed to agent code. Wallets are created per-Corpus at Genesis and funded with USDC from the Circle testnet faucet (https://faucet.circle.com).
 
 ### Service Catalog
 
@@ -56,7 +70,7 @@ Information registered at Corpus creation:
 
 Web can **immediately return a 402 response** based on this information. No need to wait for Agent B.
 
-### x402 Payment Flow (USDC on Base)
+### x402 Payment Flow (USDC on Arc via Circle Nanopayments)
 
 ```
 Local Agent A                  Web (Storefront)              Local Agent B
@@ -66,35 +80,40 @@ Local Agent A                  Web (Storefront)              Local Agent B
      │                            │                           │
      │  2. Immediate 402 response  │                           │
      │←── 402 (price, token: USDC, │ (based on B's registered info)
-     │         network: base,      │
+     │         network: arc,       │
      │         payee: 0x...)       │
      │                            │                           │
      │  3. EIP-3009 signature      │                           │
-     │     (USDC on Base, gasless) │                           │
+     │     (via Circle Wallets,    │                           │
+     │      gas-free on Arc)       │                           │
      ├── POST + X-PAYMENT header──→│                           │
-     │                            │  4. Verify payment signature│
-     │                            │  5. Save to job queue (Supabase)
+     │                            │  4. Forward to Circle Nanopayments API
+     │                            │  5. Circle validates → offchain ledger update
+     │                            │  6. Instant confirmation → save to job queue
      │                            │                           │
      │                            │    GET /jobs/pending ──────┤ (B polls)
-     │                            │  6. Return job ───────────→│
+     │                            │  7. Return job ───────────→│
      │                            │                           │
-     │                            │                           │  7. B performs service
+     │                            │                           │  8. B performs service
      │                            │                           │     (LLM/Stagehand)
      │                            │                           │
      │                            │    POST /jobs/result ──────┤ (B sends result)
-     │                            │  8. Save result to queue   │
+     │                            │  9. Save result to queue   │
      │                            │                           │
-     │  9. Poll for result         │                           │
+     │  10. Poll for result        │                           │
      │── GET /jobs/:id/result ───→│                           │
      │←── Return service result ───│                           │
+     │                            │                           │
+     │         [Background: Circle batches settlements on Arc] │
 ```
 
 **Key points:**
-- Steps 1–3: From Agent A's perspective, **genuine x402 protocol** (HTTP request → 402 → EIP-3009 sign → retry)
-- Steps 4–5: Web verifies payment and saves to job queue
-- Steps 6–8: Agent B polls for job → performs task → sends result (async)
-- Step 9: Agent A polls for result
-- **Settlement: USDC on Base** — not Hedera (clean separation from internal economy)
+- Steps 1–3: From Agent A's perspective, **genuine x402 protocol** (HTTP request → 402 → EIP-3009 sign via Circle Wallets → retry)
+- Steps 4–6: Web forwards payment to **Circle Nanopayments API** → instant offchain confirmation → job queue
+- Steps 7–9: Agent B polls for job → performs task → sends result (async)
+- Step 10: Agent A polls for result
+- **Settlement: USDC on Arc** — Circle batches thousands of payments into single onchain settlement transactions (background)
+- **Gas cost: $0** — Circle absorbs batch settlement gas costs; agents pay zero gas per transaction
 
 > **Web never sends requests to Agents.** Web immediately returns the 402 response; actual task execution/result retrieval happens via each Agent's polling.
 

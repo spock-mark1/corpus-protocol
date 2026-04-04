@@ -54,7 +54,7 @@ export async function PATCH(
 
     const worldIdResult = await verifyWorldIdProof(
       worldIdProof as WorldIdProof,
-      `approve-${id}-${approvalId}`,
+      process.env.WORLD_ACTION_APPROVE ?? "approve-decision",
       decidedBy ?? ""
     );
 
