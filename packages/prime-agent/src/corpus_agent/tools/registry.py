@@ -141,6 +141,7 @@ def build_all_tools(
     from corpus_agent.tools import commerce as _commerce_mod  # noqa: F401
     from corpus_agent.tools import hedera as _hedera_mod  # noqa: F401
     from corpus_agent.tools import internal as _internal_mod  # noqa: F401
+    from corpus_agent.tools import learning as _learning_mod  # noqa: F401
     from corpus_agent.tools import web_api as _web_api_mod  # noqa: F401
 
     # Inject dependencies into tool modules
@@ -154,5 +155,7 @@ def build_all_tools(
     _commerce_mod._settings = settings
     _hedera_mod._settings = settings
     _hedera_mod._api = api
+    _learning_mod._db = db
+    _learning_mod._settings = settings
 
     return registry

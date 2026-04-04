@@ -4,7 +4,7 @@
 
 The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the user's local PC. By using the local browser directly, bot detection, session, and 2FA friction is eliminated.
 
-**Dual-Chain Design:** Hedera handles the internal token economy (Pulse, dividends, governance), while x402 + Circle Nanopayments on Arc handles inter-Corpus service commerce (USDC nanopayments). No overlap — different chains, different tokens, different purposes.
+**Dual-Chain Design:** Hedera handles the internal token economy (Pulse, governance), while x402 + Circle Nanopayments on Arc handles inter-Corpus service commerce (USDC nanopayments). All revenue stays in the Agent Treasury. No overlap — different chains, different tokens, different purposes.
 
 ```
 ┌───────────────────────────────────────────────────────┐
@@ -34,7 +34,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 │ Hedera Network     │  │ Arc Network (EVM L1)           │
 │ Pulse Token (HTS)  │  │ Circle Nanopayments + x402     │
 │ Governance         │  │ Inter-Corpus Commerce (USDC)   │
-│                    │  │ USDC Dividend Distribution     │
+│                    │  │ Agent Treasury (USDC)           │
 └────────────────────┘  └────────────────────────────────┘
 ```
 
@@ -44,18 +44,18 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 | **Database** | Supabase | Corpus metadata, activity logs, revenue records, commerce queue |
 | **Local Agent** | User PC | Prime Agent execution, GTM (local browser), Hedera Agent Kit, Circle Wallets + x402 signing |
 | **Hedera** | Decentralized | Pulse token (HTS), governance (internal economy) |
-| **Arc (EVM L1)** | Decentralized | Circle Nanopayments + x402, inter-Corpus commerce (USDC), USDC dividend distribution |
+| **Arc (EVM L1)** | Decentralized | Circle Nanopayments + x402, inter-Corpus commerce (USDC), Agent Treasury management |
 
 ## 4.2 Dual-Chain Payment Architecture
 
 | Dimension | Hedera (Internal Economy) | x402 + Circle Nanopayments on Arc (External Economy) |
 |---|---|---|
-| **Analogy** | Corporate equity cap table & governance | B2B vendor procurement + revenue distribution |
-| **Scope** | Corpus ↔ Patron (shareholders) | Corpus ↔ Corpus (trading partners) + dividends |
+| **Analogy** | Corporate governance cap table | B2B vendor procurement + agent treasury |
+| **Scope** | Corpus ↔ Patron (governance participants) | Corpus ↔ Corpus (trading partners) |
 | **Token** | Pulse (HTS) | USDC (native on Arc) |
 | **Chain** | Hedera | Arc (Circle's stablecoin-native EVM L1) |
 | **SDK** | `hedera-agent-kit` (Python) | `x402` + `@circle-fin/developer-controlled-wallets` + Circle Nanopayments API |
-| **Use cases** | Pulse issuance, governance voting | Service purchases, Playbook trading, gas-free nanopayments, USDC dividend distribution |
+| **Use cases** | Pulse issuance, governance voting | Service purchases, Playbook trading, gas-free nanopayments, Agent Treasury management |
 | **Prize track** | Hedera — AI & Agentic Payments ($6K) + Tokenization ($2.5K) | ARC — Agentic Nanopayments ($6K) |
 
 **Hedera Agent Kit** provides 40+ on-chain tools (originally LangChain-compatible; we extract the schemas for native OpenAI function-calling). The Prime Agent uses a subset of these tools selectively based on operational needs (e.g., `get_token_balance` for governance weight). No LangChain runtime required.
@@ -82,7 +82,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 | Component | Location | Role | Technology |
 |---|---|---|---|
 | Corpus Genesis Engine | Web (on-chain) | Corpus registration + Pulse token issuance via CorpusRegistry contract (Creator signs, HTS precompile mints token, 3% launchpad fee to protocol wallet) | Next.js, Solidity, HTS Precompile |
-| Patron Registry | Web | Equity structure management, distribution status | Drizzle, Supabase, HTS |
+| Patron Registry | Web | Governance participant management, voting weight | Drizzle, Supabase, HTS |
 | Kernel Policy Engine | Web | Approval thresholds, GTM budget limits, operational policies | Config API |
 | Commerce Storefront | Web | Per-Corpus x402 service endpoint + job queue | Next.js API Routes, Supabase |
 | Prime Agent Runtime | Local | Autonomous GTM execution via tool-calling agent loop | OpenAI SDK, Stagehand, Hedera Agent Kit |

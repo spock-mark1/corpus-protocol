@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const NAV_ITEMS = [
-  { href: "/launch", label: "Launchpad", requiresWallet: true },
   { href: "/explore", label: "Explore", requiresWallet: false },
+  { href: "/network", label: "Network", requiresWallet: false },
   { href: "/leaderboard", label: "Leaderboard", requiresWallet: false },
-  { href: "/dashboard", label: "Dashboard", requiresWallet: true },
 ];
 
 export function Header() {
@@ -46,26 +45,51 @@ export function Header() {
           </nav>
         </div>
 
-        {primaryWallet ? (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-foreground font-mono bg-surface border border-border px-3 py-1.5">
-              {truncatedAddress}
-            </span>
-            <button
-              onClick={() => handleLogOut()}
-              className="text-xs text-muted hover:text-foreground transition-colors"
-            >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAuthFlow(true)}
-            className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard"
+            className={`hidden md:inline-flex text-sm transition-colors items-center gap-1.5 ${
+              pathname === "/dashboard"
+                ? "text-accent"
+                : "text-muted hover:text-foreground"
+            }`}
           >
-            Connect Wallet
-          </button>
-        )}
+            Dashboard
+            {!primaryWallet && (
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" title="Wallet required" />
+            )}
+          </Link>
+          <Link
+            href="/launch"
+            className={`hidden md:inline-flex border px-4 py-2 text-sm transition-colors ${
+              pathname === "/launch"
+                ? "border-accent text-accent"
+                : "border-border text-foreground hover:bg-surface-hover"
+            }`}
+          >
+            Launchpad
+          </Link>
+          {primaryWallet ? (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-foreground font-mono bg-surface border border-border px-3 py-1.5">
+                {truncatedAddress}
+              </span>
+              <button
+                onClick={() => handleLogOut()}
+                className="text-xs text-muted hover:text-foreground transition-colors"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthFlow(true)}
+              className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+            >
+              Connect Wallet
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

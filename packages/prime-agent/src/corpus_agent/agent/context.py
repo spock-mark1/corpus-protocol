@@ -24,6 +24,10 @@ class AgentContext:
     spending_today: float
     spending_month: float
     gtm_budget: float
+    performance_summary: dict
+    active_learnings: list[dict]
+    audience_insights: list[dict]
+    unmeasured_count: int
 
     @classmethod
     def from_db(cls, db: LocalDB, corpus_config: dict) -> AgentContext:
@@ -56,6 +60,10 @@ class AgentContext:
             spending_today=db.get_spending_today(),
             spending_month=db.get_spending_period(30),
             gtm_budget=gtm_budget,
+            performance_summary=db.get_performance_summary(7),
+            active_learnings=db.get_active_learnings(5),
+            audience_insights=db.get_audience_insights(3),
+            unmeasured_count=len(db.get_unmeasured_content(10)),
         )
 
     def to_context_block(self) -> str:
@@ -82,4 +90,34 @@ class AgentContext:
                     lines.append(f"  Schedule: {data['schedule']}")
                 if "tactics" in data:
                     lines.append(f"  Tactics: {data['tactics']}")
+                if "content_guidelines" in data:
+                    lines.append(f"  Content guidelines: {data['content_guidelines']}")
+                if "tone_adjustments" in data:
+                    lines.append(f"  Tone adjustments: {data['tone_adjustments']}")
+
+        # Performance summary
+        ps = self.performance_summary
+        if ps and ps.get("total_posts", 0) > 0:
+            lines.append(
+                f"Performance (7d): {ps.get('total_posts', 0)} posts | "
+                f"{ps.get('total_likes', 0)} likes | {ps.get('total_reposts', 0)} reposts | "
+                f"{ps.get('total_impressions', 0)} impressions | "
+                f"avg engagement: {ps.get('avg_engagement', 0):.1f}"
+            )
+
+        if self.unmeasured_count > 0:
+            lines.append(f"Unmeasured posts: {self.unmeasured_count} (run measure_recent_posts)")
+
+        # Active learnings
+        if self.active_learnings:
+            lines.append("Strategy learnings (apply these to content):")
+            for l in self.active_learnings:
+                lines.append(f"  - [{l['category']}] {l['insight'][:100]} (confidence: {l['confidence']:.0%})")
+
+        # Audience insights
+        if self.audience_insights:
+            lines.append("Audience segments:")
+            for a in self.audience_insights:
+                lines.append(f"  - {a['segment']}: {a['description'][:80]} (score: {a['engagement_score']:.1f})")
+
         return "\n".join(lines)

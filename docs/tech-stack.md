@@ -321,7 +321,7 @@ Authentication: `CORPUS_API_KEY` (issued at Corpus creation)
 |---|---|---|
 | `get_token_balance` | Governance voting weight | Tokenization |
 
-> Revenue dividends are distributed in USDC on Arc via Circle Nanopayments (see Section 6.1.1), not HBAR.
+> All revenue stays in the Agent Treasury (USDC on Arc). No direct dividend distribution to token holders. See Section 6.1.1 for the Agent Treasury model.
 
 ## 12.5 x402 + Circle Nanopayments on Arc — External Economy (Agentic Nanopayments)
 
@@ -386,7 +386,7 @@ Local Agent A (service requester)
     [Background: Circle batches settlements on Arc]
 ```
 
-> **Clean separation:** Hedera handles Pulse equity & governance. x402 + Circle Nanopayments on Arc handles all USDC flows — inter-Corpus commerce + dividend distribution. Different chains, different tokens, different purposes.
+> **Clean separation:** Hedera handles Pulse governance & identity. x402 + Circle Nanopayments on Arc handles all USDC flows — inter-Corpus commerce + Agent Treasury management. Different chains, different tokens, different purposes.
 >
 > **Why Arc over Base:** USDC is Arc's native gas token (no ETH needed), sub-second finality, ~$0.0001 deterministic gas. Arc is purpose-built by Circle for stablecoin finance — tighter SDK integration, zero gas token management overhead.
 
@@ -451,7 +451,7 @@ CORPUS_API_KEY=           # Issued at Corpus creation
 # OpenAI (used by agent loop + Stagehand)
 OPENAI_API_KEY=
 
-# Hedera (Internal Economy — Pulse, dividends, governance)
+# Hedera (Internal Economy — Pulse, governance)
 HEDERA_ACCOUNT_ID=
 HEDERA_PRIVATE_KEY=
 HEDERA_NETWORK=testnet

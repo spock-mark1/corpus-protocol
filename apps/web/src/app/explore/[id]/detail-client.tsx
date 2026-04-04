@@ -5,18 +5,44 @@ import { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/components/wallet-gate";
 import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
 
+interface ServiceInfo {
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  walletAddress: string;
+  chains: string[];
+}
+
+interface JobStats {
+  total: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  successRate: number | null;
+  totalRevenue: number;
+  jobsToday: number;
+}
+
+interface RecentJob {
+  id: string;
+  serviceName: string;
+  status: string;
+  amount: number;
+  createdAt: string;
+}
+
 interface CorpusDetail {
   id: string;
   name: string;
+  agentName: string | null;
   category: string;
   description: string;
   status: string;
   hederaTokenId: string;
   pulsePrice: string;
   totalSupply: number;
-  creatorShare: number;
-  investorShare: number;
-  treasuryShare: number;
+  creatorAddress: string | null;
   persona: string;
   targetAudience: string;
   channels: string[];
@@ -24,6 +50,7 @@ interface CorpusDetail {
   gtmBudget: number;
   minPatronPulse: number | null;
   agentOnline: boolean;
+  agentLastSeen: string | null;
   createdAt: string;
   revenue: string;
   patronCount: number;
@@ -31,9 +58,12 @@ interface CorpusDetail {
   activities: { id: string; type: string; content: string; channel: string; status: string; timestamp: string }[];
   revenueHistory: { month: string; amount: number }[];
   agentStats: { postsToday: number; repliesToday: number; researchesToday: number };
+  service: ServiceInfo | null;
+  jobStats: JobStats;
+  recentJobs: RecentJob[];
 }
 
-const TABS = ["Overview", "Activity", "Patrons", "Revenue", "Agent"] as const;
+const TABS = ["Overview", "Services", "Activity", "Patrons", "Revenue", "Agent"] as const;
 type Tab = (typeof TABS)[number];
 
 const TYPE_ICONS: Record<string, string> = {
@@ -44,22 +74,23 @@ const TYPE_ICONS: Record<string, string> = {
   approval: "!!",
 };
 
+const JOB_STATUS_STYLES: Record<string, string> = {
+  completed: "text-green-400",
+  pending: "text-yellow-400",
+  failed: "text-red-400",
+};
+
 export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [patronStatus, setPatronStatus] = useState<"none" | "loading" | "patron">(() => {
-    // Check if current wallet is already a patron (will be set by wallet address match)
-    return "none";
-  });
+  const [patronStatus, setPatronStatus] = useState<"none" | "loading" | "patron">("none");
   const { isConnected, connect, address } = useWallet();
 
   const minRequired = corpus.minPatronPulse ?? Math.floor(corpus.totalSupply * 0.001);
 
-  // Check if connected wallet is already a patron
   const isPatron = corpus.patrons.some(
     (p) => p.walletAddress === address && p.status === "active"
   );
 
-  // Fetch actual Pulse balance from Hedera Mirror Node
   const [myPulseBalance, setPulseBalance] = useState(0);
   const [pulseLoading, setPulseLoading] = useState(false);
 
@@ -78,7 +109,6 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
       })
       .catch(() => {
         if (cancelled) return;
-        // Fallback to DB patron record
         const dbAmount = corpus.patrons.find((p) => p.walletAddress === address)?.pulseAmount ?? 0;
         setPulseBalance(dbAmount);
       })
@@ -115,22 +145,33 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <Link href="/explore" className="text-xs text-muted hover:text-foreground transition-colors">
-        &larr; Explore
+        &larr; Agent Directory
       </Link>
 
+      {/* Header */}
       <div className="mt-6 mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                corpus.agentOnline ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.4)]" : "bg-muted/40"
+              }`}
+            />
             <h1 className="text-2xl font-bold text-accent">{corpus.name}</h1>
             <span className={`text-xs ${corpus.status === "Active" ? "text-green-400" : "text-muted"}`}>
-              [{corpus.status.toUpperCase()}]
+              [{corpus.agentOnline ? "ONLINE" : "OFFLINE"}]
             </span>
           </div>
+          {corpus.agentName && (
+            <div className="text-sm text-muted/60 font-mono mb-1">@{corpus.agentName}</div>
+          )}
           <p className="text-sm text-muted max-w-xl">{corpus.description}</p>
           <div className="flex items-center gap-4 mt-3 text-xs text-muted">
             <span>[{corpus.category.toUpperCase()}]</span>
             <span>Created {corpus.createdAt}</span>
-            <span>Token: {corpus.hederaTokenId}</span>
+            {corpus.agentLastSeen && !corpus.agentOnline && (
+              <span>Last seen {new Date(corpus.agentLastSeen).toLocaleDateString()}</span>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
@@ -188,13 +229,17 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
         </div>
       </div>
 
+      {/* Key metrics */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border mb-8">
         {[
           { label: "Pulse Price", value: corpus.pulsePrice },
-          { label: "Market Cap", value: `$${((corpus.totalSupply * parseFloat(corpus.pulsePrice.replace("$", ""))) / 1000).toFixed(0)}K` },
           { label: "Patrons", value: corpus.patronCount.toString() },
-          { label: "Revenue", value: corpus.revenue },
-          { label: "Supply", value: corpus.totalSupply.toLocaleString() },
+          { label: "Treasury", value: corpus.revenue },
+          { label: "Jobs Done", value: corpus.jobStats.completed.toString() },
+          {
+            label: "Success Rate",
+            value: corpus.jobStats.successRate !== null ? `${corpus.jobStats.successRate}%` : "—",
+          },
         ].map((s) => (
           <div key={s.label} className="bg-surface px-4 py-4 text-center">
             <div className="text-lg font-bold text-accent">{s.value}</div>
@@ -203,23 +248,67 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-6 border-b border-border mb-8">
+      {/* Tabs */}
+      <div className="flex items-center gap-6 border-b border-border mb-8 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`pb-3 text-sm transition-colors ${
+            className={`pb-3 text-sm transition-colors whitespace-nowrap ${
               tab === t ? "text-accent border-b border-accent" : "text-muted hover:text-foreground"
             }`}
           >
             {t}
+            {t === "Services" && corpus.service && (
+              <span className="ml-1.5 text-xs text-accent/60">1</span>
+            )}
           </button>
         ))}
       </div>
 
+      {/* ─── Overview Tab ──────────────────────────────────── */}
       {tab === "Overview" && (
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Service highlight (if available) */}
+            {corpus.service && (
+              <div className="bg-surface border border-accent/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-xs text-accent">[SERVICE OFFERED]</div>
+                  <button
+                    onClick={() => setTab("Services")}
+                    className="text-xs text-muted hover:text-accent transition-colors"
+                  >
+                    Details &rarr;
+                  </button>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">{corpus.service.name}</h3>
+                    {corpus.service.description && (
+                      <p className="text-xs text-muted mt-1 max-w-md">{corpus.service.description}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-lg font-bold text-accent">
+                      {corpus.service.price} {corpus.service.currency}
+                    </div>
+                    <div className="text-xs text-muted">per request</div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border flex items-center gap-4 text-xs text-muted">
+                  <span>{corpus.jobStats.completed} jobs completed</span>
+                  {corpus.jobStats.successRate !== null && (
+                    <span className={corpus.jobStats.successRate >= 90 ? "text-green-400" : corpus.jobStats.successRate >= 70 ? "text-yellow-400" : "text-red-400"}>
+                      {corpus.jobStats.successRate}% success rate
+                    </span>
+                  )}
+                  <span>Chains: {corpus.service.chains.join(", ")}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Kernel Policy */}
             <div className="bg-surface border border-border p-6">
               <div className="text-xs text-muted mb-4">[KERNEL POLICY]</div>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -246,6 +335,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
               </div>
             </div>
 
+            {/* Prime Agent */}
             <div className="bg-surface border border-border p-6">
               <div className="text-xs text-muted mb-4">[PRIME AGENT]</div>
               <div className="space-y-4 text-sm">
@@ -260,6 +350,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
               </div>
             </div>
 
+            {/* Recent Activity */}
             <div className="bg-surface border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-xs text-muted">[RECENT ACTIVITY]</div>
@@ -287,28 +378,82 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
             </div>
           </div>
 
+          {/* Right sidebar */}
           <div className="space-y-6">
-            <div className="bg-surface border border-border p-6">
-              <div className="text-xs text-muted mb-4">[PULSE DISTRIBUTION]</div>
-              <div className="space-y-3">
-                {[
-                  { label: "Creator", pct: corpus.creatorShare, color: "bg-white" },
-                  { label: "Investors", pct: corpus.investorShare, color: "bg-foreground/50" },
-                  { label: "Treasury", pct: corpus.treasuryShare, color: "bg-muted/50" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-muted">{s.label}</span>
-                      <span className="text-foreground">{s.pct}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-border">
-                      <div className={`h-full ${s.color}`} style={{ width: `${s.pct}%` }} />
-                    </div>
+            {/* Job Performance */}
+            {corpus.jobStats.total > 0 && (
+              <div className="bg-surface border border-border p-6">
+                <div className="text-xs text-muted mb-4">[JOB PERFORMANCE]</div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Total Jobs</span>
+                    <span className="text-foreground font-bold">{corpus.jobStats.total}</span>
                   </div>
-                ))}
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Completed</span>
+                    <span className="text-green-400">{corpus.jobStats.completed}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Failed</span>
+                    <span className="text-red-400">{corpus.jobStats.failed}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Pending</span>
+                    <span className="text-yellow-400">{corpus.jobStats.pending}</span>
+                  </div>
+                  {corpus.jobStats.successRate !== null && (
+                    <>
+                      <div className="pt-2 border-t border-border">
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-muted">Success Rate</span>
+                          <span className={corpus.jobStats.successRate >= 90 ? "text-green-400" : corpus.jobStats.successRate >= 70 ? "text-yellow-400" : "text-red-400"}>
+                            {corpus.jobStats.successRate}%
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-border">
+                          <div
+                            className={`h-full ${corpus.jobStats.successRate >= 90 ? "bg-green-400" : corpus.jobStats.successRate >= 70 ? "bg-yellow-400" : "bg-red-400"}`}
+                            style={{ width: `${corpus.jobStats.successRate}%` }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between text-xs pt-2 border-t border-border">
+                    <span className="text-muted">Job Revenue</span>
+                    <span className="text-accent font-bold">${corpus.jobStats.totalRevenue.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Revenue Model */}
+            <div className="bg-surface border border-border p-6">
+              <div className="text-xs text-muted mb-4">[REVENUE MODEL]</div>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted">Model</span>
+                  <span className="text-foreground">Agent Treasury</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Revenue Destination</span>
+                  <span className="text-accent">100% Agent Wallet</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Creator Earnings</span>
+                  <span className="text-foreground">Service Fees</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Pulse Mechanism</span>
+                  <span className="text-foreground">Governance + Access</span>
+                </div>
+                <div className="pt-2 border-t border-border text-muted leading-relaxed">
+                  All revenue stays in the agent treasury for operations and Pulse buyback &amp; burn. No direct distribution to token holders.
+                </div>
               </div>
             </div>
 
+            {/* On-chain */}
             <div className="bg-surface border border-border p-6">
               <div className="text-xs text-muted mb-4">[ON-CHAIN]</div>
               <div className="space-y-3 text-xs">
@@ -334,42 +479,134 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                 </a>
               </div>
             </div>
-
-            <div className="bg-surface border border-border p-6">
-              <div className="text-xs text-muted mb-4">[RUN AGENT]</div>
-              <div className="bg-background border border-border p-3 text-xs text-foreground overflow-x-auto">
-                <div className="text-muted"># Install</div>
-                <div>pip install corpus-agent</div>
-                <div className="text-muted mt-2"># Start</div>
-                <div>corpus-agent start \</div>
-                <div className="pl-4">--corpus-id {corpus.hederaTokenId}</div>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
-      {tab === "Activity" && (
-        <div className="bg-surface border border-border divide-y divide-border">
-          {corpus.activities.map((a) => (
-            <div key={a.id} className="flex items-start gap-4 p-4 hover:bg-surface-hover transition-colors">
-              <span className="text-sm text-muted w-6 shrink-0 font-bold text-center">{TYPE_ICONS[a.type]}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">{a.content}</p>
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted">
-                  <span className="border border-border px-1.5 py-0.5">{a.channel}</span>
-                  <span>{a.timestamp}</span>
-                  <span className="border border-border px-1.5 py-0.5 uppercase">{a.type}</span>
+      {/* ─── Services Tab ──────────────────────────────────── */}
+      {tab === "Services" && (
+        <div className="space-y-6">
+          {corpus.service ? (
+            <>
+              {/* Service card */}
+              <div className="bg-surface border border-border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-xs text-accent">[AVAILABLE SERVICE]</div>
+                  <span
+                    className={`text-xs ${
+                      corpus.agentOnline ? "text-green-400" : "text-muted"
+                    }`}
+                  >
+                    {corpus.agentOnline ? "[ACCEPTING REQUESTS]" : "[OFFLINE]"}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">{corpus.service.name}</h3>
+                {corpus.service.description && (
+                  <p className="text-sm text-muted mb-4">{corpus.service.description}</p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted text-xs">Price</span>
+                    <p className="text-accent font-bold mt-1">
+                      {corpus.service.price} {corpus.service.currency}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted text-xs">Payment</span>
+                    <p className="text-foreground mt-1">x402 Protocol</p>
+                  </div>
+                  <div>
+                    <span className="text-muted text-xs">Chains</span>
+                    <p className="text-foreground mt-1">{corpus.service.chains.join(", ")}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted text-xs">Wallet</span>
+                    <p className="text-foreground mt-1 font-mono text-xs truncate">{corpus.service.walletAddress}</p>
+                  </div>
                 </div>
               </div>
-              <span className={`text-xs shrink-0 ${a.status === "completed" ? "text-green-400" : a.status === "pending" ? "text-yellow-400" : "text-red-400"}`}>
-                [{a.status.toUpperCase()}]
-              </span>
+
+              {/* Integration guide */}
+              <div className="bg-surface border border-border p-6">
+                <div className="text-xs text-muted mb-4">[INTEGRATION GUIDE]</div>
+                <p className="text-xs text-muted mb-4">
+                  Call this agent&apos;s service programmatically via the x402 commerce protocol.
+                </p>
+                <div className="bg-background border border-border p-4 text-xs text-foreground overflow-x-auto font-mono space-y-1">
+                  <div className="text-green-400"># Discover service</div>
+                  <div className="text-muted">GET /api/services?category={corpus.category.toLowerCase()}</div>
+                  <div className="mt-3 text-green-400"># Submit a job request</div>
+                  <div className="text-muted">POST /api/corpus/{corpus.id}/commerce/jobs</div>
+                  <div className="text-muted">Content-Type: application/json</div>
+                  <div className="text-muted">X-Payment-Sig: &lt;x402_payment_signature&gt;</div>
+                  <div className="mt-1">{"{"}</div>
+                  <div className="pl-4">&quot;serviceName&quot;: &quot;{corpus.service.name}&quot;,</div>
+                  <div className="pl-4">&quot;payload&quot;: {"{"} &quot;...your request data&quot; {"}"},</div>
+                  <div className="pl-4">&quot;amount&quot;: &quot;{corpus.service.price}&quot;</div>
+                  <div>{"}"}</div>
+                  <div className="mt-3 text-green-400"># Poll for result</div>
+                  <div className="text-muted">GET /api/corpus/{corpus.id}/commerce/jobs/:jobId</div>
+                </div>
+              </div>
+
+              {/* Recent jobs */}
+              {corpus.recentJobs.length > 0 && (
+                <div className="bg-surface border border-border p-6">
+                  <div className="text-xs text-muted mb-4">[RECENT JOBS]</div>
+                  <div className="space-y-2">
+                    {corpus.recentJobs.map((job) => (
+                      <div key={job.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className={JOB_STATUS_STYLES[job.status] ?? "text-muted"}>
+                            [{job.status.toUpperCase()}]
+                          </span>
+                          <span className="text-foreground">{job.serviceName}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-muted">
+                          <span>${job.amount}</span>
+                          <span>{job.createdAt}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-20 text-muted text-sm">
+              This agent does not offer a commerce service yet.
             </div>
-          ))}
+          )}
         </div>
       )}
 
+      {/* ─── Activity Tab ──────────────────────────────────── */}
+      {tab === "Activity" && (
+        <div className="bg-surface border border-border divide-y divide-border">
+          {corpus.activities.length === 0 ? (
+            <div className="text-center py-12 text-muted text-sm">No activity recorded yet.</div>
+          ) : (
+            corpus.activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-4 p-4 hover:bg-surface-hover transition-colors">
+                <span className="text-sm text-muted w-6 shrink-0 font-bold text-center">{TYPE_ICONS[a.type]}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{a.content}</p>
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-muted">
+                    <span className="border border-border px-1.5 py-0.5">{a.channel}</span>
+                    <span>{a.timestamp}</span>
+                    <span className="border border-border px-1.5 py-0.5 uppercase">{a.type}</span>
+                  </div>
+                </div>
+                <span className={`text-xs shrink-0 ${a.status === "completed" ? "text-green-400" : a.status === "pending" ? "text-yellow-400" : "text-red-400"}`}>
+                  [{a.status.toUpperCase()}]
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ─── Patrons Tab ──────────────────────────────────── */}
       {tab === "Patrons" && (
         <div className="bg-surface border border-border">
           <div className="grid grid-cols-4 gap-4 px-4 py-3 border-b border-border text-xs text-muted">
@@ -391,13 +628,15 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
         </div>
       )}
 
+      {/* ─── Revenue Tab ──────────────────────────────────── */}
       {tab === "Revenue" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: "Total Revenue", value: corpus.revenue },
               { label: "This Month", value: `$${(REVENUE_HISTORY[REVENUE_HISTORY.length - 1]?.amount ?? 0).toLocaleString()}` },
               { label: "Avg Monthly", value: `$${Math.round(REVENUE_HISTORY.length > 0 ? REVENUE_HISTORY.reduce((s, r) => s + r.amount, 0) / REVENUE_HISTORY.length : 0).toLocaleString()}` },
+              { label: "From Jobs", value: `$${corpus.jobStats.totalRevenue.toLocaleString()}` },
             ].map((s) => (
               <div key={s.label} className="bg-surface border border-border p-4 text-center">
                 <div className="text-xl font-bold text-accent">{s.value}</div>
@@ -408,21 +647,26 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
 
           <div className="bg-surface border border-border p-6">
             <div className="text-xs text-muted mb-6">[REVENUE HISTORY]</div>
-            <div className="flex items-end gap-3 h-40">
-              {REVENUE_HISTORY.map((r) => (
-                <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs text-accent">${(r.amount / 1000).toFixed(1)}K</span>
-                  <div className="w-full bg-border relative" style={{ height: `${(r.amount / maxRevenue) * 100}%` }}>
-                    <div className="absolute inset-0 bg-foreground/20 hover:bg-foreground/40 transition-colors" />
+            {REVENUE_HISTORY.length === 0 ? (
+              <div className="text-center py-12 text-muted text-sm">No revenue data yet.</div>
+            ) : (
+              <div className="flex items-end gap-3 h-40">
+                {REVENUE_HISTORY.map((r) => (
+                  <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
+                    <span className="text-xs text-accent">${(r.amount / 1000).toFixed(1)}K</span>
+                    <div className="w-full bg-border relative" style={{ height: `${(r.amount / maxRevenue) * 100}%` }}>
+                      <div className="absolute inset-0 bg-foreground/20 hover:bg-foreground/40 transition-colors" />
+                    </div>
+                    <span className="text-xs text-muted">{r.month}</span>
                   </div>
-                  <span className="text-xs text-muted">{r.month}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* ─── Agent Tab ──────────────────────────────────── */}
       {tab === "Agent" && (
         <div className="space-y-6">
           <div className="bg-surface border border-border p-6">
@@ -432,7 +676,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                 {corpus.agentOnline ? "[ONLINE]" : "[OFFLINE]"}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-muted text-xs">Posts Today</span>
                 <p className="text-foreground mt-1">{corpus.agentStats.postsToday}</p>
@@ -444,6 +688,10 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
               <div>
                 <span className="text-muted text-xs">Researches Today</span>
                 <p className="text-foreground mt-1">{corpus.agentStats.researchesToday}</p>
+              </div>
+              <div>
+                <span className="text-muted text-xs">Jobs Today</span>
+                <p className="text-foreground mt-1">{corpus.jobStats.jobsToday}</p>
               </div>
             </div>
           </div>
@@ -459,11 +707,17 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
 
           <div className="bg-surface border border-border p-6">
             <div className="text-xs text-muted mb-4">[LOCAL EXECUTION]</div>
-            <div className="bg-background border border-border p-4 text-xs text-foreground space-y-1 overflow-x-auto">
+            <div className="bg-background border border-border p-4 text-xs text-foreground space-y-1 overflow-x-auto font-mono">
               <div className="text-green-400">$ corpus-agent status</div>
               <div className="text-muted mt-2">Corpus:    {corpus.name}</div>
               <div className="text-muted">Token:     {corpus.hederaTokenId}</div>
               <div className="text-muted">Status:    {corpus.agentOnline ? "ONLINE" : "OFFLINE"}</div>
+              {corpus.service && (
+                <>
+                  <div className="text-muted">Service:   {corpus.service.name}</div>
+                  <div className="text-muted">Price:     {corpus.service.price} {corpus.service.currency}</div>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -28,9 +28,6 @@ describe("POST /api/corpus — create", () => {
         category: "Development",
         description: "Created by e2e test suite",
         totalSupply: 500_000,
-        creatorShare: 60,
-        investorShare: 25,
-        treasuryShare: 15,
       }),
     });
 
@@ -69,20 +66,6 @@ describe("POST /api/corpus — create", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects shares that don't sum to 100", async () => {
-    const res = await api("/api/corpus", {
-      method: "POST",
-      body: JSON.stringify({
-        name: "Bad Shares",
-        category: "Marketing",
-        description: "Shares don't add up",
-        creatorShare: 50,
-        investorShare: 20,
-        treasuryShare: 10,
-      }),
-    });
-    expect(res.status).toBe(400);
-  });
 });
 
 describe("GET /api/corpus — list", () => {

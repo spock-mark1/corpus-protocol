@@ -4,6 +4,7 @@ import { cppCorpus, cppCommerceServices, cppCommerceJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
 import { broadcastTransferWithAuthorization } from "@/lib/circle";
+import { fulfillInstant } from "@/lib/fulfillment";
 
 // Arc network config (USDC = native gas token)
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
@@ -55,6 +56,7 @@ export async function GET(
         token: USDC_ADDRESS,
         serviceName: service.serviceName,
         description: service.description,
+        fulfillmentMode: service.fulfillmentMode,
         corpusId: id,
       },
       { status: 402 }
@@ -251,10 +253,43 @@ export async function POST(
       }
     }
 
-    // 8. Create commerce job
+    // 8. Create commerce job + fulfill
     const body = await request.json().catch(() => ({}));
     const payload = body.payload ?? body;
 
+    if (service.fulfillmentMode === "instant") {
+      // Instant mode: server calls external API and returns result synchronously
+      let result: Record<string, unknown>;
+      try {
+        result = await fulfillInstant(service.serviceName, payload ?? {});
+      } catch (fulfillErr) {
+        return Response.json(
+          { error: "Service fulfillment failed", details: String(fulfillErr) },
+          { status: 502 }
+        );
+      }
+
+      const [job] = await db
+        .insert(cppCommerceJobs)
+        .values({
+          corpusId: id,
+          requesterCorpusId: requester.id,
+          serviceName: service.serviceName,
+          payload: payload ?? undefined,
+          result,
+          paymentSig: signature ?? paymentHeader,
+          amount: service.price,
+          status: "completed",
+        })
+        .returning();
+
+      return Response.json(
+        { id: job.id, jobId: job.id, status: "completed", result, txHash },
+        { status: 201 }
+      );
+    }
+
+    // Async mode: create pending job for agent to fulfill via polling
     const [job] = await db
       .insert(cppCommerceJobs)
       .values({
@@ -289,7 +324,7 @@ export async function PUT(
     if (!auth.ok) return auth.response;
 
     const body = await request.json();
-    const { serviceName, description, price, walletAddress, chains } = body;
+    const { serviceName, description, price, walletAddress, chains, fulfillmentMode } = body;
 
     if (!serviceName || price == null) {
       return Response.json(
@@ -339,6 +374,7 @@ export async function PUT(
           price: String(price),
           walletAddress: serviceWallet,
           chains: chains ?? ["arc"],
+          fulfillmentMode: fulfillmentMode ?? "async",
         })
         .where(eq(cppCommerceServices.corpusId, id))
         .returning();
@@ -355,6 +391,7 @@ export async function PUT(
         price: String(price),
         walletAddress: serviceWallet,
         chains: chains ?? ["arc"],
+        fulfillmentMode: fulfillmentMode ?? "async",
       })
       .returning();
 

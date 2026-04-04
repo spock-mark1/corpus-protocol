@@ -42,6 +42,7 @@ async def run(settings: Settings) -> None:
     # Import tools + agent after config is loaded
     from corpus_agent.agent.context import AgentContext
     from corpus_agent.agent.loop import agent_loop
+    from corpus_agent.agent.prompt import build_learning_prompt
     from corpus_agent.browser.session import BrowserSession
     from corpus_agent.tools.registry import build_all_tools
 
@@ -149,12 +150,42 @@ async def run(settings: Settings) -> None:
             except asyncio.TimeoutError:
                 pass
 
+    async def learning_cycle_task():
+        """Run a dedicated learning cycle every 6 hours: measure → review → evolve."""
+        learning_interval = 6 * 3600  # 6 hours
+        while not shutdown_event.is_set():
+            try:
+                context = AgentContext.from_db(db, corpus_config)
+
+                # Only run if there are unmeasured posts or enough data for a review
+                if context.unmeasured_count > 0 or context.performance_summary.get("total_posts", 0) >= 5:
+                    console.print("[bold magenta]Starting learning cycle...[/bold magenta]")
+                    learning_prompt = build_learning_prompt(corpus_config, context)
+                    await agent_loop(
+                        settings=settings,
+                        tools=tools,
+                        corpus_config=corpus_config,
+                        context=context,
+                        db=db,
+                        system_prompt_override=learning_prompt,
+                    )
+                    db.update_schedule("learning_cycle")
+                    console.print("[bold magenta]Learning cycle complete.[/bold magenta]")
+            except Exception as e:
+                console.print(f"[red]Learning cycle error: {e}[/red]")
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=learning_interval)
+                break
+            except asyncio.TimeoutError:
+                pass
+
     try:
         await asyncio.gather(
             agent_cycle_task(),
             polling_task(),
             heartbeat_task(),
             activity_flush_task(),
+            learning_cycle_task(),
         )
     finally:
         # Graceful shutdown

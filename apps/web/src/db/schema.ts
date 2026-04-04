@@ -166,6 +166,9 @@ export const cppCommerceServices = pgTable(
     walletAddress: text("walletAddress").notNull(),
     chains: text("chains").array().notNull().default(["arc"]),
 
+    // "instant" = server fulfills immediately via external API, "async" = agent polls & fulfills
+    fulfillmentMode: text("fulfillmentMode").notNull().default("async"),
+
     createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 }).notNull().$onUpdate(() => new Date()),
   },

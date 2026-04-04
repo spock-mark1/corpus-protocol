@@ -16,7 +16,6 @@ import { BrowserProvider, ethers } from "ethers";
 const STEPS = [
   "Product",
   "Pulse",
-  "Patron",
   "Kernel",
   "Agent",
   "Review",
@@ -50,19 +49,18 @@ function LaunchForm() {
     tokenSymbol: "",
     totalSupply: "1000000",
     initialPrice: "0.01",
-    creatorShare: 60,
-    investorShare: 25,
-    treasuryShare: 15,
     approvalThreshold: "10",
     gtmBudget: "100",
     persona: "",
     targetAudience: "",
     tone: "professional",
     creatorWallet: "",
-    investorWallet: "",
-    treasuryWallet: "",
     channels: ["X (Twitter)"] as string[],
     agentName: "",
+    serviceName: "",
+    serviceDescription: "",
+    servicePrice: "",
+    serviceCurrency: "USDC" as const,
   });
   const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
   const [nameChecking, setNameChecking] = useState(false);
@@ -113,18 +111,9 @@ function LaunchForm() {
           price > 0 && price <= 1_000_000
         );
       }
-      case 2: {
-        const c = form.creatorWallet || address || "";
-        const i = form.investorWallet;
-        const t = form.treasuryWallet;
-        const allFilled = c && i && t;
-        const allUnique = new Set([c, i, t]).size === 3;
-        return form.creatorShare + form.investorShare + form.treasuryShare === 100
-          && allFilled && allUnique;
-      }
-      case 3:
+      case 2:
         return form.approvalThreshold && form.gtmBudget;
-      case 4:
+      case 3:
         return form.persona && form.targetAudience && form.channels.length > 0
           && form.agentName.length >= 3 && nameAvailable === true;
       default:
@@ -153,13 +142,14 @@ function LaunchForm() {
       const registry = getRegistryContract(signer);
 
       const creatorAddr = form.creatorWallet || address;
+      // All revenue → Agent Treasury (no external distribution)
       const patron = {
-        creatorShare: form.creatorShare * 100, // % → basis points
-        investorShare: form.investorShare * 100,
-        treasuryShare: form.treasuryShare * 100,
+        creatorShare: 0,
+        investorShare: 0,
+        treasuryShare: 10000, // 100% in basis points
         creatorAddr,
-        investorAddr: form.investorWallet,
-        treasuryAddr: form.treasuryWallet,
+        investorAddr: creatorAddr, // placeholder — not used for distribution
+        treasuryAddr: creatorAddr, // agent treasury = creator-controlled
       };
       const kernel = {
         approvalThreshold: BigInt(Math.round(Number(form.approvalThreshold) * 100)), // USD → cents
@@ -222,9 +212,6 @@ function LaunchForm() {
             category: form.category.charAt(0).toUpperCase() + form.category.slice(1),
             description: form.productDesc,
             totalSupply: Number(form.totalSupply),
-            creatorShare: form.creatorShare,
-            investorShare: form.investorShare,
-            treasuryShare: form.treasuryShare,
             persona: form.persona,
             targetAudience: form.targetAudience,
             channels: form.channels,
@@ -234,12 +221,17 @@ function LaunchForm() {
             initialPrice: Number(form.initialPrice),
             minPatronPulse: Math.floor(Number(form.totalSupply) / 1000),
             creatorAddress: creatorAddr,
-            investorAddress: form.investorWallet,
-            treasuryAddress: form.treasuryWallet,
             walletAddress: address,
             onChainId,
             agentName: form.agentName,
             hederaTokenId: pulseTokenAddr,
+            ...(form.serviceName && form.servicePrice
+              ? {
+                  serviceName: form.serviceName,
+                  serviceDescription: form.serviceDescription || undefined,
+                  servicePrice: Number(form.servicePrice),
+                }
+              : {}),
           }),
         });
 
@@ -390,6 +382,27 @@ function LaunchForm() {
                 <option value="education">Education</option>
               </select>
             </div>
+
+            <div className="pt-4 mt-2 border-t border-border">
+              <div className="text-xs text-accent mb-1">[COMMERCE SERVICE]</div>
+              <p className="text-xs text-muted mb-4">
+                Define the paid service your agent offers to other agents via the x402 protocol. Optional — you can add this later.
+              </p>
+              <div className="space-y-4">
+                <Field label="Service Name" value={form.serviceName} onChange={(v) => update("serviceName", v)} placeholder="e.g. SEO Content Generation" />
+                <Field label="Service Description" value={form.serviceDescription} onChange={(v) => update("serviceDescription", v)} placeholder="What does this service do? What input/output should callers expect?" multiline />
+                <div>
+                  <label className="block text-xs text-muted mb-2">Price per Request (USDC)</label>
+                  <input
+                    type="number"
+                    value={form.servicePrice}
+                    onChange={(e) => update("servicePrice", e.target.value)}
+                    placeholder="e.g. 5.00"
+                    className="w-full bg-background border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -417,61 +430,6 @@ function LaunchForm() {
 
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-accent mb-1">Patron Structure</h2>
-            <p className="text-sm text-muted mb-6">
-              Set the ownership distribution for your Corpus.
-            </p>
-            <div className="space-y-2">
-              <SliderField label="Creator" value={form.creatorShare} onChange={(v) => {
-                setForm((prev) => {
-                  const diff = v - prev.creatorShare;
-                  const newInvestor = Math.max(0, prev.investorShare - diff);
-                  return { ...prev, creatorShare: v, investorShare: newInvestor, treasuryShare: 100 - v - newInvestor };
-                });
-              }} />
-              <Field label="Creator Wallet" value={form.creatorWallet || address || ""} onChange={(v) => update("creatorWallet", v)} placeholder="Auto-filled from connected wallet" />
-            </div>
-            <div className="space-y-2">
-              <SliderField label="Investors" value={form.investorShare} onChange={(v) => {
-                setForm((prev) => {
-                  const diff = v - prev.investorShare;
-                  const newTreasury = Math.max(0, prev.treasuryShare - diff);
-                  return { ...prev, investorShare: v, treasuryShare: newTreasury, creatorShare: 100 - v - newTreasury };
-                });
-              }} />
-              <Field label="Investor Wallet" value={form.investorWallet} onChange={(v) => update("investorWallet", v)} placeholder="0x... or 0.0.xxxxx" />
-            </div>
-            <div className="space-y-2">
-              <SliderField label="Treasury" value={form.treasuryShare} onChange={(v) => {
-                setForm((prev) => {
-                  const diff = v - prev.treasuryShare;
-                  const newCreator = Math.max(0, prev.creatorShare - diff);
-                  return { ...prev, treasuryShare: v, creatorShare: newCreator, investorShare: 100 - v - newCreator };
-                });
-              }} />
-              <Field label="Treasury Wallet" value={form.treasuryWallet} onChange={(v) => update("treasuryWallet", v)} placeholder="0x... or 0.0.xxxxx" />
-            </div>
-            <div className="text-xs text-muted pt-2 space-y-1">
-              <div>
-                Total: {form.creatorShare + form.investorShare + form.treasuryShare}%
-                {form.creatorShare + form.investorShare + form.treasuryShare !== 100 && (
-                  <span className="text-red-400 ml-2">Must equal 100%</span>
-                )}
-              </div>
-              {(() => {
-                const c = form.creatorWallet || address || "";
-                const i = form.investorWallet;
-                const t = form.treasuryWallet;
-                return c && i && t && new Set([c, i, t]).size < 3 ? (
-                  <div className="text-red-400">Wallet addresses must be unique</div>
-                ) : null;
-              })()}
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Kernel Policy</h2>
             <p className="text-sm text-muted mb-6">
               Set the governance rules for your agent.
@@ -481,7 +439,7 @@ function LaunchForm() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Prime Agent Setup</h2>
             <p className="text-sm text-muted mb-6">
@@ -558,7 +516,7 @@ function LaunchForm() {
           </div>
         )}
 
-        {step === 5 && (
+        {step === 4 && (
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Review & Deploy</h2>
             <p className="text-sm text-muted mb-6">
@@ -571,15 +529,19 @@ function LaunchForm() {
               <ReviewRow label="Supply" value={Number(form.totalSupply).toLocaleString()} />
               <ReviewRow label="Price" value={`$${form.initialPrice}`} />
               <ReviewRow label="Agent Identity" value={`${form.agentName}.corpus`} />
-              <ReviewRow label="Distribution" value={`Creator ${form.creatorShare}% / Investors ${form.investorShare}% / Treasury ${form.treasuryShare}%`} />
+              <ReviewRow label="Revenue Model" value="100% Agent Treasury (no external distribution)" />
               <ReviewRow label="Creator Wallet" value={form.creatorWallet || address || ""} />
-              <ReviewRow label="Investor Wallet" value={form.investorWallet} />
-              <ReviewRow label="Treasury Wallet" value={form.treasuryWallet} />
               <ReviewRow label="Approval" value={`> $${form.approvalThreshold}`} />
               <ReviewRow label="Budget" value={`$${form.gtmBudget}/mo`} />
               <ReviewRow label="Persona" value={form.persona} />
               <ReviewRow label="Audience" value={form.targetAudience} />
               <ReviewRow label="Channels" value={form.channels.join(", ")} />
+              {form.serviceName && (
+                <>
+                  <ReviewRow label="Service" value={form.serviceName} />
+                  <ReviewRow label="Service Price" value={form.servicePrice ? `${form.servicePrice} USDC` : "—"} />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -628,7 +590,7 @@ function LaunchForm() {
         >
           Back
         </button>
-        {step < 5 ? (
+        {step < 4 ? (
           <button
             onClick={() => setStep(step + 1)}
             disabled={!canNext()}
@@ -687,46 +649,6 @@ function Field({
           className={cls}
         />
       )}
-    </div>
-  );
-}
-
-function SliderField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-xs text-muted">{label}</label>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={value}
-            onChange={(e) => {
-              const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-              onChange(v);
-            }}
-            className="w-14 bg-background border border-border px-2 py-0.5 text-sm text-accent font-bold text-right focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <span className="text-sm text-accent font-bold">%</span>
-        </div>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-white"
-      />
     </div>
   );
 }

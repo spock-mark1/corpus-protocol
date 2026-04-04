@@ -17,9 +17,9 @@ Corpus Protocol lets users turn a product or service into a fully autonomous **a
 3. **에이전트 간 거래** — 생태계 내 다른 Corpus의 서비스를 탐색·비교·구매(x402 + Circle Nanopayments, USDC on Arc, 가스비 $0)하고 리뷰를 남김
 4. **자율 학습** — 실행 결과를 기반으로 전략을 반복 개선 => 축적된 지식과 노하우를 플레이북에 담아 판매
 5. **승인 요청** — 임계값 초과 지출 등 중요 판단은 승인 요청 (승인 주체 Creator)
-6. **수익 분배** — 수익 발생 시 Creator / Investor / Treasury에 USDC로 자동 배분
+6. **수익 관리** — 모든 수익은 Agent Treasury에 100% 귀속. 운영비, Pulse buyback & burn, 서비스 수수료로 사용. 토큰 보유자에게 직접 배당하지 않음
 
-> **사용자는 자신의 제품을 등록하고 Prime Agent와 연결하면, 에이전트가 알아서 돈을 벌고, 배우고, 거래하고, 수익을 나눈다.**
+> **사용자는 자신의 제품을 등록하고 Prime Agent와 연결하면, 에이전트가 알아서 돈을 벌고, 배우고, 거래한다. Creator는 서비스 수수료로 수익을 얻고, Pulse는 거버넌스 + 서비스 접근권으로 기능한다.**
 
 ---
 
@@ -38,9 +38,9 @@ All concepts in Corpus Protocol derive from the Latin root **Corpus (body)**, th
 | Human World | Corpus World | Description |
 |---|---|---|
 | Incorporation | **Corpus Genesis** | Agent corporation establishment process |
-| Shareholder | **Patron** | Governance-eligible owner of a Corpus (requires minimum Pulse holding) |
+| Governance Participant | **Patron** | Governance-eligible participant of a Corpus (requires minimum Pulse holding, no revenue share) |
 | Board of Directors | **Kernel** | Policy layer (revenue reinvestment ratios, etc.) |
-| Equity | **Pulse** | Equity token (HTS-based) |
+| Utility Token | **Pulse** | Governance + access token (HTS-based, no revenue share) |
 | CEO | **Prime Agent** | Lead agent, autonomous GTM execution entity |
 
 ---

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from corpus_agent.config import APP_DIR
@@ -77,6 +77,38 @@ CREATE TABLE IF NOT EXISTS playbooks (
     source_corpus TEXT,
     applied     INTEGER NOT NULL DEFAULT 0,
     purchased_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS content_performance (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_id  INTEGER REFERENCES content_history(id),
+    channel     TEXT NOT NULL,
+    likes       INTEGER NOT NULL DEFAULT 0,
+    reposts     INTEGER NOT NULL DEFAULT 0,
+    replies     INTEGER NOT NULL DEFAULT 0,
+    impressions INTEGER NOT NULL DEFAULT 0,
+    followers_at INTEGER NOT NULL DEFAULT 0,
+    measured_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS strategy_learnings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    category    TEXT NOT NULL,
+    insight     TEXT NOT NULL,
+    evidence    TEXT,
+    confidence  REAL NOT NULL DEFAULT 0.5,
+    applied     INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audience_insights (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    segment     TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    engagement_score REAL NOT NULL DEFAULT 0.0,
+    keywords    TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -260,6 +292,152 @@ class LocalDB:
             (f"-{days} days",),
         ).fetchone()
         return float(row["total"]) if row else 0.0
+
+    # ── Content Performance ─────────────────────────────────
+
+    def record_performance(
+        self,
+        content_id: int,
+        channel: str,
+        likes: int = 0,
+        reposts: int = 0,
+        replies: int = 0,
+        impressions: int = 0,
+        followers_at: int = 0,
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO content_performance "
+            "(content_id, channel, likes, reposts, replies, impressions, followers_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (content_id, channel, likes, reposts, replies, impressions, followers_at),
+        )
+        self._conn.commit()
+
+    def get_content_with_performance(self, limit: int = 20) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT ch.id, ch.content, ch.channel, ch.posted_at, "
+            "COALESCE(cp.likes, 0) as likes, COALESCE(cp.reposts, 0) as reposts, "
+            "COALESCE(cp.replies, 0) as replies, COALESCE(cp.impressions, 0) as impressions, "
+            "cp.measured_at "
+            "FROM content_history ch "
+            "LEFT JOIN content_performance cp ON cp.content_id = ch.id "
+            "ORDER BY ch.posted_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_unmeasured_content(self, limit: int = 10) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT ch.id, ch.content, ch.channel, ch.posted_at "
+            "FROM content_history ch "
+            "LEFT JOIN content_performance cp ON cp.content_id = ch.id "
+            "WHERE cp.id IS NULL "
+            "AND ch.posted_at >= datetime('now', '-7 days') "
+            "ORDER BY ch.posted_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_top_performing_content(self, limit: int = 5) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT ch.content, ch.channel, ch.posted_at, "
+            "cp.likes, cp.reposts, cp.replies, cp.impressions, "
+            "(cp.likes + cp.reposts * 2 + cp.replies * 1.5) as engagement_score "
+            "FROM content_history ch "
+            "JOIN content_performance cp ON cp.content_id = ch.id "
+            "ORDER BY engagement_score DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_performance_summary(self, days: int = 7) -> dict:
+        row = self._conn.execute(
+            "SELECT COUNT(*) as total_posts, "
+            "COALESCE(SUM(cp.likes), 0) as total_likes, "
+            "COALESCE(SUM(cp.reposts), 0) as total_reposts, "
+            "COALESCE(SUM(cp.replies), 0) as total_replies, "
+            "COALESCE(SUM(cp.impressions), 0) as total_impressions, "
+            "COALESCE(AVG(cp.likes + cp.reposts * 2 + cp.replies * 1.5), 0) as avg_engagement "
+            "FROM content_history ch "
+            "LEFT JOIN content_performance cp ON cp.content_id = ch.id "
+            "WHERE ch.posted_at >= datetime('now', ?)",
+            (f"-{days} days",),
+        ).fetchone()
+        return dict(row) if row else {}
+
+    # ── Strategy Learnings ─────────────────────────────────
+
+    def save_learning(
+        self,
+        category: str,
+        insight: str,
+        evidence: str = "",
+        confidence: float = 0.5,
+        expires_days: int | None = 30,
+    ) -> int:
+        expires_at_str: str | None = None
+        if expires_days:
+            expires_at_str = (
+                datetime.now(timezone.utc) + timedelta(days=expires_days)
+            ).isoformat()
+        self._conn.execute(
+            "INSERT INTO strategy_learnings (category, insight, evidence, confidence, expires_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (category, insight, evidence, confidence, expires_at_str),
+        )
+        self._conn.commit()
+        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    def get_active_learnings(self, limit: int = 10) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, category, insight, evidence, confidence, created_at "
+            "FROM strategy_learnings "
+            "WHERE (expires_at IS NULL OR expires_at > datetime('now')) "
+            "ORDER BY confidence DESC, created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_learning_applied(self, learning_id: int) -> None:
+        self._conn.execute(
+            "UPDATE strategy_learnings SET applied = 1 WHERE id = ?", (learning_id,)
+        )
+        self._conn.commit()
+
+    # ── Audience Insights ──────────────────────────────────
+
+    def upsert_audience_insight(
+        self,
+        segment: str,
+        description: str,
+        engagement_score: float = 0.0,
+        keywords: list[str] | None = None,
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO audience_insights (segment, description, engagement_score, keywords) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(segment) DO UPDATE SET "
+            "description = excluded.description, "
+            "engagement_score = excluded.engagement_score, "
+            "keywords = excluded.keywords, "
+            "updated_at = datetime('now')",
+            (segment, description, engagement_score, json.dumps(keywords) if keywords else None),
+        )
+        self._conn.commit()
+
+    def get_audience_insights(self, limit: int = 5) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT segment, description, engagement_score, keywords, updated_at "
+            "FROM audience_insights ORDER BY engagement_score DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("keywords"):
+                d["keywords"] = json.loads(d["keywords"])
+            result.append(d)
+        return result
 
     # ── Cleanup ────────────────────────────────────────────
 

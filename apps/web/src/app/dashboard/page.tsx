@@ -66,9 +66,6 @@ export default async function DashboardPage() {
       corpusId: c.id,
       corpusName: c.name,
       totalRevenue: corpusRevenue,
-      creatorShare: c.creatorShare,
-      investorShare: c.investorShare,
-      treasuryShare: c.treasuryShare,
       bySource,
       recentTx: c.revenues.slice(0, 5).map((r) => ({
         amount: Number(r.amount),

@@ -37,9 +37,6 @@ interface Props {
     corpusId: string;
     corpusName: string;
     totalRevenue: number;
-    creatorShare: number;
-    investorShare: number;
-    treasuryShare: number;
     bySource: Record<string, number>;
     recentTx: { amount: number; source: string; currency: string; date: string }[];
   }[];
@@ -281,18 +278,9 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                   <h3 className="text-sm font-bold text-accent">{rs.corpusName}</h3>
                   <span className="text-sm text-foreground font-bold">${rs.totalRevenue.toFixed(2)}</span>
                 </div>
-                {/* Distribution breakdown */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  {[
-                    { label: "Creator", pct: rs.creatorShare, amount: rs.totalRevenue * rs.creatorShare / 100 },
-                    { label: "Investor", pct: rs.investorShare, amount: rs.totalRevenue * rs.investorShare / 100 },
-                    { label: "Treasury", pct: rs.treasuryShare, amount: rs.totalRevenue * rs.treasuryShare / 100 },
-                  ].map((d) => (
-                    <div key={d.label} className="text-center">
-                      <div className="text-xs text-muted mb-1">{d.label} ({d.pct}%)</div>
-                      <div className="text-sm text-foreground font-bold">${d.amount.toFixed(2)}</div>
-                    </div>
-                  ))}
+                {/* Agent Treasury model */}
+                <div className="mb-4 px-3 py-2 bg-background border border-border text-xs text-muted">
+                  100% Agent Treasury &mdash; revenue funds operations &amp; Pulse buyback
                 </div>
                 {/* Source breakdown */}
                 <div className="flex gap-3 mb-4">
@@ -343,8 +331,8 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                   <span className="text-accent">${c.pulsePrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">Market Cap</span>
-                  <span className="text-foreground">${(c.totalSupply * c.pulsePrice).toLocaleString()}</span>
+                  <span className="text-muted">Revenue Model</span>
+                  <span className="text-foreground">Agent Treasury</span>
                 </div>
                 {c.hederaTokenId && (
                   <a

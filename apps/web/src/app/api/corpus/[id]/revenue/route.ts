@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { cppCorpus, cppRevenues } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
-import { distributeRevenue } from "@/lib/circle";
 
 // GET /api/corpus/:id/revenue — Get revenue history
 export async function GET(
@@ -38,6 +37,7 @@ export async function GET(
 }
 
 // POST /api/corpus/:id/revenue — Report revenue (from Local Agent)
+// All revenue stays in Agent Treasury. No distribution to external wallets.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -82,24 +82,7 @@ export async function POST(
       );
     }
 
-    // Fetch corpus config for share ratios and wallet addresses
-    const corpus = await db
-      .select({
-        creatorShare: cppCorpus.creatorShare,
-        investorShare: cppCorpus.investorShare,
-        treasuryShare: cppCorpus.treasuryShare,
-        creatorAddress: cppCorpus.creatorAddress,
-        investorAddress: cppCorpus.investorAddress,
-        treasuryAddress: cppCorpus.treasuryAddress,
-        agentWalletId: cppCorpus.agentWalletId,
-        agentWalletAddress: cppCorpus.agentWalletAddress,
-      })
-      .from(cppCorpus)
-      .where(eq(cppCorpus.id, id))
-      .limit(1)
-      .then((r) => r[0] ?? null);
-
-    // Record revenue in DB
+    // Record revenue in DB — all revenue stays in Agent Treasury
     const [revenue] = await db
       .insert(cppRevenues)
       .values({
@@ -111,31 +94,7 @@ export async function POST(
       })
       .returning();
 
-    // Auto-distribute revenue to Creator/Investor/Treasury (best-effort, async)
-    let distributions = null;
-    if (corpus?.agentWalletId && corpus?.agentWalletAddress && (currency ?? "USDC") === "USDC") {
-      const shares = [
-        { address: corpus.creatorAddress ?? "", percent: corpus.creatorShare, label: "creator" },
-        { address: corpus.investorAddress ?? "", percent: corpus.investorShare, label: "investor" },
-        { address: corpus.treasuryAddress ?? "", percent: corpus.treasuryShare, label: "treasury" },
-      ].filter((s) => s.address && s.percent > 0);
-
-      if (shares.length > 0) {
-        try {
-          const result = await distributeRevenue({
-            agentWalletId: corpus.agentWalletId,
-            agentWalletAddress: corpus.agentWalletAddress,
-            amountUsdc: amount,
-            shares,
-          });
-          distributions = result.distributions;
-        } catch (err) {
-          console.error("Revenue distribution failed:", err);
-        }
-      }
-    }
-
-    return Response.json({ ...revenue, distributions }, { status: 201 });
+    return Response.json(revenue, { status: 201 });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

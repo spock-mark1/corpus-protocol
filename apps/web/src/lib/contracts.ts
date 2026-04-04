@@ -10,8 +10,9 @@ const NAME_SERVICE_ADDRESS =
 
 export const REGISTRY_ABI = [
   // createCorpus (payable — sends HBAR for HTS token creation)
+  // Note: patron tuple retained for on-chain ABI compatibility. Revenue model is 100% Agent Treasury off-chain.
   "function createCorpus(string name, string category, tuple(uint16 creatorShare, uint16 investorShare, uint16 treasuryShare, address creatorAddr, address investorAddr, address treasuryAddr) patron, tuple(uint256 approvalThreshold, uint256 gtmBudget, uint256 minPatronPulse) kernel, tuple(address hederaTokenAddr, uint256 totalSupply, uint256 priceUsdCents) pulse, string tokenName, string tokenSymbol) external payable returns (uint256)",
-  // updates
+  // updates (patron shares no longer used for revenue distribution)
   "function updatePatron(uint256 corpusId, tuple(uint16 creatorShare, uint16 investorShare, uint16 treasuryShare, address creatorAddr, address investorAddr, address treasuryAddr) patron) external",
   "function updateKernel(uint256 corpusId, tuple(uint256 approvalThreshold, uint256 gtmBudget, uint256 minPatronPulse) kernel) external",
   "function updatePulse(uint256 corpusId, tuple(address hederaTokenAddr, uint256 totalSupply, uint256 priceUsdCents) pulse) external",

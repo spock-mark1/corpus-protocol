@@ -143,6 +143,18 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
         description=f"Service from Corpus {corpus_id}: {service_type}",
     )
 
+    # Instant fulfillment: result is already in the response
+    if submit_result.get("status") == "completed" and submit_result.get("result"):
+        _db.update_commerce_status(job_id, "completed")
+        return {
+            "status": "completed",
+            "job_id": job_id,
+            "price": price,
+            "corpus_id": corpus_id,
+            "service_type": service_type,
+            "result": submit_result["result"],
+        }
+
     return {
         "status": "submitted",
         "job_id": job_id,

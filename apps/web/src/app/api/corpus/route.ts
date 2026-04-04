@@ -76,17 +76,12 @@ export async function POST(request: NextRequest) {
       category,
       description,
       totalSupply,
-      creatorShare,
-      investorShare,
-      treasuryShare,
       persona,
       targetAudience,
       channels,
       approvalThreshold,
       gtmBudget,
       creatorAddress,
-      investorAddress,
-      treasuryAddress,
       walletAddress,
       onChainId,
       agentName,
@@ -125,34 +120,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate share distribution
-    const cShare = creatorShare ?? 60;
-    const iShare = investorShare ?? 25;
-    const tShare = treasuryShare ?? 15;
-
-    if (cShare + iShare + tShare !== 100) {
-      return Response.json(
-        { error: "creatorShare + investorShare + treasuryShare must equal 100" },
-        { status: 400 }
-      );
-    }
-
-    if (cShare < 0 || iShare < 0 || tShare < 0) {
-      return Response.json(
-        { error: "share values must be non-negative" },
-        { status: 400 }
-      );
-    }
-
-    // Validate wallet address uniqueness
-    const wallets = [creatorAddress, investorAddress, treasuryAddress].filter(Boolean);
-    if (wallets.length >= 2 && new Set(wallets).size !== wallets.length) {
-      return Response.json(
-        { error: "creatorAddress, investorAddress, and treasuryAddress must be unique" },
-        { status: 400 }
-      );
-    }
-
     // Validate numeric fields
     const supply = totalSupply ?? 1000000;
     if (typeof supply !== "number" || supply <= 0 || supply > 100_000_000) {
@@ -177,6 +144,7 @@ export async function POST(request: NextRequest) {
       // Non-blocking — corpus can still be created without agent wallet
     }
 
+    // Revenue model: 100% to Agent Treasury (no external distribution)
     const [corpus] = await db
       .insert(cppCorpus)
       .values({
@@ -185,9 +153,9 @@ export async function POST(request: NextRequest) {
         description,
         apiKey,
         totalSupply: supply,
-        creatorShare: cShare,
-        investorShare: iShare,
-        treasuryShare: tShare,
+        creatorShare: 0,
+        investorShare: 0,
+        treasuryShare: 100,
         persona,
         targetAudience,
         channels: channels ?? [],
@@ -197,8 +165,6 @@ export async function POST(request: NextRequest) {
         pulsePrice: String(initialPrice ?? 0),
         minPatronPulse: minPatronPulse ?? null,
         creatorAddress,
-        investorAddress,
-        treasuryAddress,
         walletAddress,
         onChainId: onChainId ?? null,
         agentName: agentName ?? null,
@@ -208,19 +174,44 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Create initial Patron (Creator)
+    // Create initial Patron (Creator — governance participant, no revenue share)
+    // pulseAmount = governance voting weight (60% of supply)
+    // share = revenue share percentage (always 0 under Agent Treasury model)
+    const CREATOR_GOVERNANCE_FRACTION = 0.6;
     if (creatorAddress) {
       await db.insert(cppPatrons).values({
         corpusId: corpus.id,
         walletAddress: creatorAddress,
         role: "Creator",
-        pulseAmount: Math.floor((supply * cShare) / 100),
-        share: String(cShare),
+        pulseAmount: Math.floor(supply * CREATOR_GOVERNANCE_FRACTION),
+        share: "0",
       });
     }
 
     // Create Commerce Service if service info provided
     const { serviceName, serviceDescription, servicePrice } = body;
+
+    if (serviceName !== undefined || servicePrice !== undefined) {
+      if (typeof serviceName !== "string" || serviceName.length === 0 || serviceName.length > 200) {
+        return Response.json(
+          { error: "serviceName must be a non-empty string under 200 characters" },
+          { status: 400 }
+        );
+      }
+      if (typeof servicePrice !== "number" || servicePrice <= 0 || servicePrice > 1_000_000) {
+        return Response.json(
+          { error: "servicePrice must be a positive number up to 1,000,000" },
+          { status: 400 }
+        );
+      }
+      if (serviceDescription !== undefined && (typeof serviceDescription !== "string" || serviceDescription.length > 2000)) {
+        return Response.json(
+          { error: "serviceDescription must be a string under 2000 characters" },
+          { status: 400 }
+        );
+      }
+    }
+
     if (serviceName && servicePrice) {
       const serviceWallet = agentWalletAddress || creatorAddress || walletAddress;
       if (serviceWallet) {

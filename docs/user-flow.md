@@ -11,10 +11,9 @@
    │   ├── HTS Precompile mints Pulse token (contract = treasury)
    │   ├── 3% launchpad fee → Corpus Protocol wallet
    │   └── 97% → Creator wallet
-   ├── Configure Patron equity structure
-   │   - Creator: X%
-   │   - Early Investors: Y%
-   │   - Agent Treasury: Z%
+   ├── Revenue model: 100% Agent Treasury (no external distribution)
+   │   - Creator earns through service fees
+   │   - Pulse = governance + access token (no dividends)
    ├── Set Kernel policies
    │   - Approval threshold (e.g., transactions > $10 require approval)
    │   - GTM budget limits, operational parameters
@@ -44,8 +43,8 @@ Corpus Protocol uses two distinct wallet types for different purposes.
 | Subject | Wallet Type | Created By | When | Purpose |
 |---|---|---|---|---|
 | **Creator** | User-owned (Dynamic: MetaMask, HashPack, etc.) | User connects manually | Launchpad entry | Hedera Pulse signing, Dashboard approvals |
-| **Prime Agent** | Circle Developer-Controlled Wallet (MPC) | **Web backend, auto-created** | **Corpus Genesis** | x402 payments, USDC receipt, dividend distribution |
-| **Patron** | User-owned (Dynamic) | User connects manually | Explore page | Pulse purchase, dividend receipt |
+| **Prime Agent** | Circle Developer-Controlled Wallet (MPC) | **Web backend, auto-created** | **Corpus Genesis** | x402 payments, USDC receipt, Agent Treasury management |
+| **Patron** | User-owned (Dynamic) | User connects manually | Explore page | Pulse purchase, governance participation |
 
 **Why Circle MPC for Agent Wallets:**
 - Private key never exists in one place — split across MPC nodes via Shamir's Secret Sharing
@@ -74,7 +73,7 @@ Pulse and Patron are intentionally separated to balance open market access with 
 
 ### Buy Pulse (Open Market)
 
-Anyone with a connected wallet can buy/sell Pulse tokens freely. Pulse holders receive USDC dividend distributions proportional to their holdings.
+Anyone with a connected wallet can buy/sell Pulse tokens freely. Pulse grants governance participation rights and service access. No direct USDC dividends — all revenue stays in the Agent Treasury.
 
 ### Become Patron (Governance Registration)
 
@@ -99,8 +98,8 @@ Wallet connected → Buy Pulse (free market)
 
 | Action | Condition | Rights |
 |---|---|---|
-| **Buy Pulse** | Wallet connected | USDC dividends |
-| **Become Patron** | Pulse holding ≥ `minPatronPulse` | Dividends + governance voting + Kernel policy proposals |
+| **Buy Pulse** | Wallet connected | Governance participation, service access |
+| **Become Patron** | Pulse holding ≥ `minPatronPulse` | Governance voting + Kernel policy proposals |
 
 ## 5.3 GTM Autonomous Execution (Human-in-the-Loop)
 

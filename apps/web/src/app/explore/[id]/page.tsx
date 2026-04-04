@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { cppCorpus } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { cppCorpus, cppCommerceJobs } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { CorpusDetailClient } from "./detail-client";
 
@@ -18,6 +18,9 @@ export default async function CorpusDetailPage({
       activities: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 20 },
       approvals: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 10 },
       revenues: { orderBy: (r, { desc }) => [desc(r.createdAt)], limit: 20 },
+      commerceServices: true,
+      // Only recent jobs for the "Recent Jobs" list — stats come from DB aggregation
+      commerceJobs: { orderBy: (j, { desc: d }) => [d(j.createdAt)], limit: 10 },
     },
   });
 
@@ -32,7 +35,7 @@ export default async function CorpusDetailPage({
   const revenueByMonth = new Map<string, number>();
   for (const r of corpus.revenues) {
     const d = new Date(r.createdAt);
-    const key = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+    const key = `${d.toLocaleString("en-US", { month: "short" })} ${String(d.getFullYear()).slice(-2)}`;
     revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + Number(r.amount));
   }
   const revenueHistory = Array.from(revenueByMonth.entries())
@@ -51,19 +54,35 @@ export default async function CorpusDetailPage({
     researchesToday: todayActivities.filter((a) => a.type === "research").length,
   };
 
+  // Commerce stats — aggregate from DB (not limited by relation query)
+  const [jobStatsRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      completed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'completed')::int`,
+      failed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'failed')::int`,
+      pending: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'pending')::int`,
+      totalRevenue: sql<number>`coalesce(sum(${cppCommerceJobs.amount}::numeric) filter (where ${cppCommerceJobs.status} = 'completed'), 0)::float`,
+      jobsToday: sql<number>`count(*) filter (where ${cppCommerceJobs.createdAt} >= ${todayStart})::int`,
+    })
+    .from(cppCommerceJobs)
+    .where(eq(cppCommerceJobs.corpusId, id));
+
+  const successRate = jobStatsRow.total > 0
+    ? Math.round((jobStatsRow.completed / jobStatsRow.total) * 100)
+    : null;
+
   // Serialize for client
   const data = {
     id: corpus.id,
     name: corpus.name,
+    agentName: corpus.agentName,
     category: corpus.category,
     description: corpus.description,
     status: corpus.status,
     hederaTokenId: corpus.hederaTokenId ?? "",
     pulsePrice: `$${Number(corpus.pulsePrice).toFixed(2)}`,
     totalSupply: corpus.totalSupply,
-    creatorShare: corpus.creatorShare,
-    investorShare: corpus.investorShare,
-    treasuryShare: corpus.treasuryShare,
+    creatorAddress: corpus.creatorAddress,
     persona: corpus.persona ?? "",
     targetAudience: corpus.targetAudience ?? "",
     channels: corpus.channels,
@@ -71,6 +90,7 @@ export default async function CorpusDetailPage({
     gtmBudget: Number(corpus.gtmBudget),
     minPatronPulse: corpus.minPatronPulse,
     agentOnline: corpus.agentOnline,
+    agentLastSeen: corpus.agentLastSeen?.toISOString() ?? null,
     createdAt: corpus.createdAt.toISOString().split("T")[0],
     revenue: `$${totalRevenue.toLocaleString()}`,
     patronCount: corpus.patrons.length,
@@ -91,6 +111,33 @@ export default async function CorpusDetailPage({
     })),
     revenueHistory,
     agentStats,
+    // Commerce
+    service: corpus.commerceServices
+      ? {
+          name: corpus.commerceServices.serviceName,
+          description: corpus.commerceServices.description,
+          price: Number(corpus.commerceServices.price),
+          currency: corpus.commerceServices.currency,
+          walletAddress: corpus.commerceServices.walletAddress,
+          chains: corpus.commerceServices.chains,
+        }
+      : null,
+    jobStats: {
+      total: jobStatsRow.total,
+      completed: jobStatsRow.completed,
+      failed: jobStatsRow.failed,
+      pending: jobStatsRow.pending,
+      successRate,
+      totalRevenue: jobStatsRow.totalRevenue,
+      jobsToday: jobStatsRow.jobsToday,
+    },
+    recentJobs: (corpus.commerceJobs ?? []).map((j) => ({
+      id: j.id,
+      serviceName: j.serviceName,
+      status: j.status,
+      amount: Number(j.amount),
+      createdAt: getRelativeTime(j.createdAt),
+    })),
   };
 
   return <CorpusDetailClient corpus={data} />;

@@ -7,27 +7,30 @@ Managed via **Hedera Agent Kit** tools within the Prime Agent's tool-calling loo
 | Operation | Trigger | Where | Mechanism |
 |---|---|---|---|
 | Pulse token issuance | Corpus Genesis | On-chain (CorpusRegistry) | HTS Precompile via `createCorpus()` — Creator signs, 3% fee to protocol wallet |
-| Patron equity distribution | Genesis / new Patron | On-chain | Creator distributes from their 97% allocation |
 | Governance voting weight | Kernel vote | Local Agent / Web | HTS `TokenBalanceQuery` via `get_token_balance` |
 
-### 6.1.1 Revenue Distribution (USDC)
+### 6.1.1 Revenue Model (Agent Treasury)
 
-Revenue from inter-Corpus commerce (x402) is received in USDC on Arc via Circle Nanopayments. Dividends are distributed in USDC directly — no currency conversion required.
+All revenue stays in the Agent Treasury wallet (100%). No direct distribution to Creator, Investor, or Treasury wallets.
 
-**Autonomous vs Approval:**
+**Revenue Flow:**
 ```
 Revenue $1.00 USDC received (via Circle Nanopayments on Arc)
     │
-    ├── Below threshold → AUTONOMOUS mode
-    │   Agent distributes USDC via Circle Wallets:
-    │   ├── Creator   (60%): 0.60 USDC → 0x_CREATOR
-    │   ├── Investor  (25%): 0.25 USDC → 0x_INVESTOR
-    │   └── Treasury  (15%): 0.15 USDC → 0x_TREASURY
-    │   (gas-free — Circle Nanopayments batches settlements)
-    │
-    └── Above threshold → RETURN_BYTES mode
-        Agent returns unsigned tx → Dashboard approval → submit
+    └── 100% → Agent Treasury Wallet
+        │
+        ├── Operations — GTM budget, service purchases, Playbook acquisition
+        ├── Pulse Buyback & Burn — Agent uses surplus revenue to buy Pulse
+        │   tokens from the market and burn them, reducing supply
+        └── Creator Earnings — Creator earns through service fees (1% of
+            commerce transactions), not through token dividends
 ```
+
+**Why no direct distribution:**
+- Avoids securities classification (Howey Test: no "expectation of profit from the efforts of others")
+- Pulse functions as governance + access token, not equity
+- Revenue reinvestment into the agent economy creates a healthier flywheel
+- Creator is incentivized to build a better agent (more commerce = more fees), not to extract dividends
 
 ## 6.2 x402 + Circle Nanopayments on Arc — External Economy (Corpus ↔ Corpus)
 

@@ -258,3 +258,70 @@ async def search_x(query: str) -> dict:
         "Extract the top 10 posts: author handle, text content, engagement (likes, reposts), and tweet URL"
     )
     return {"query": query, "results": results}
+
+
+@tool(
+    "check_post_performance",
+    "Check engagement metrics (likes, reposts, replies, impressions) for a recently posted tweet. "
+    "Navigates to the user's profile and extracts metrics for the matching post.",
+)
+@_browser_safe
+@_x_login_required
+async def check_post_performance(content_snippet: str) -> dict:
+    """Find a recent post by content snippet and extract its engagement metrics."""
+    username = _settings.x_username if _settings else ""
+    if not username:
+        return {"error": "X username not configured"}
+
+    await _browser.goto(f"https://x.com/{username}")
+    await asyncio.sleep(3)
+
+    metrics = await _browser.extract(
+        f"Find the tweet that contains the text similar to: '{content_snippet[:80]}'. "
+        "Extract: likes (number), reposts/retweets (number), replies (number), "
+        "views/impressions (number), and the tweet URL. "
+        "If not found, return found: false.",
+        schema={
+            "type": "object",
+            "properties": {
+                "found": {"type": "boolean"},
+                "likes": {"type": "integer"},
+                "reposts": {"type": "integer"},
+                "replies": {"type": "integer"},
+                "impressions": {"type": "integer"},
+                "tweet_url": {"type": "string"},
+            },
+            "required": ["found"],
+        },
+    )
+    return metrics if isinstance(metrics, dict) else {"found": False}
+
+
+@tool(
+    "get_profile_stats",
+    "Get current X profile stats: follower count, following count, total posts.",
+)
+@_browser_safe
+@_x_login_required
+async def get_profile_stats() -> dict:
+    username = _settings.x_username if _settings else ""
+    if not username:
+        return {"error": "X username not configured"}
+
+    await _browser.goto(f"https://x.com/{username}")
+    await asyncio.sleep(3)
+
+    stats = await _browser.extract(
+        "Extract the profile stats: followers count (number), following count (number), "
+        "total posts count (number).",
+        schema={
+            "type": "object",
+            "properties": {
+                "followers": {"type": "integer"},
+                "following": {"type": "integer"},
+                "total_posts": {"type": "integer"},
+            },
+            "required": ["followers"],
+        },
+    )
+    return stats if isinstance(stats, dict) else {"error": "Could not extract profile stats"}
