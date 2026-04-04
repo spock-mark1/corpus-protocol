@@ -187,7 +187,7 @@ export async function broadcastTransferWithAuthorization(payload: {
   const tokenAddress =
     payload.tokenAddress ??
     process.env.NEXT_PUBLIC_USDC_ADDRESS ??
-    "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
+    "0x79a02482A880BCE3B13E09dA970DC34Db4CD24d1";
 
   // EIP-3009 transferWithAuthorization ABI
   const usdc = new ethers.Contract(

@@ -193,7 +193,7 @@ class LocalDB:
 
     def add_commerce_job(self, job_id: str, corpus_id: str, service_type: str, payload: dict | None = None) -> None:
         self._conn.execute(
-            "INSERT INTO commerce_queue (job_id, corpus_id, service_type, payload) VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO commerce_queue (job_id, corpus_id, service_type, payload) VALUES (?, ?, ?, ?)",
             (job_id, corpus_id, service_type, json.dumps(payload) if payload else None),
         )
         self._conn.commit()

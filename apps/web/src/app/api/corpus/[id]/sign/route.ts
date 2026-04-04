@@ -7,7 +7,7 @@ import { signPayment } from "@/lib/circle";
 import crypto from "crypto";
 
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 11155111);
-const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79a02482A880BCE3B13E09dA970DC34Db4CD24d1";
 
 // POST /api/corpus/:id/sign — Signing proxy for x402 payments
 // Agent sends payment details, Web signs via Circle MPC, returns signature

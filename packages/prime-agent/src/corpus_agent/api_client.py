@@ -167,7 +167,11 @@ class CorpusAPIClient:
         )
         if r.status_code in (200, 201):
             return r.json()
-        return None
+        # Return error details instead of None
+        try:
+            return r.json()
+        except Exception:
+            return {"error": f"Commerce submission failed with status {r.status_code}"}
 
     async def discover_services(
         self, category: str | None = None, target: str | None = None
