@@ -278,6 +278,7 @@ export async function POST(
           payload: payload ?? undefined,
           result,
           paymentSig: signature ?? paymentHeader,
+          txHash,
           amount: service.price,
           status: "completed",
         })
@@ -298,6 +299,7 @@ export async function POST(
         serviceName: service.serviceName,
         payload: payload ?? undefined,
         paymentSig: signature ?? paymentHeader,
+        txHash,
         amount: service.price,
         status: "pending",
       })

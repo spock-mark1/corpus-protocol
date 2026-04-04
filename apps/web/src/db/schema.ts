@@ -187,6 +187,7 @@ export const cppCommerceJobs = pgTable(
     result: jsonb("result"),
     status: text("status").notNull().default("pending"),
     paymentSig: text("paymentSig"),
+    txHash: text("txHash"),
     amount: numeric("amount", { precision: 18, scale: 6 }).notNull(),
 
     createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),

@@ -22,6 +22,7 @@ export default async function NetworkPage() {
       serviceName: cppCommerceJobs.serviceName,
       amount: cppCommerceJobs.amount,
       status: cppCommerceJobs.status,
+      txHash: cppCommerceJobs.txHash,
       createdAt: cppCommerceJobs.createdAt,
     })
     .from(cppCommerceJobs)
@@ -87,6 +88,7 @@ export default async function NetworkPage() {
     currency: string;
     status: string;
     timestamp: string;
+    txHash: string | null;
   };
 
   const transactions: Transaction[] = [];
@@ -106,6 +108,7 @@ export default async function NetworkPage() {
       currency: "USDC",
       status: j.status,
       timestamp: j.createdAt.toISOString(),
+      txHash: j.txHash ?? null,
     });
   }
 
@@ -127,6 +130,7 @@ export default async function NetworkPage() {
       currency: p.playbookCurrency,
       status: "completed",
       timestamp: p.createdAt.toISOString(),
+      txHash: p.txHash ?? null,
     });
   }
 

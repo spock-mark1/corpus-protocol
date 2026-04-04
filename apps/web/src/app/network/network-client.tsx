@@ -16,6 +16,7 @@ interface Transaction {
   currency: string;
   status: string;
   timestamp: string;
+  txHash: string | null;
 }
 
 interface Props {
@@ -199,14 +200,29 @@ export function NetworkClient({ stats, transactions }: Props) {
                       />
                     </div>
 
-                    {/* Item + Time */}
+                    {/* Item + Time + Explorer Link */}
                     <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs">
                       <span className="text-muted max-w-48 truncate">
                         &ldquo;{tx.itemName}&rdquo;
                       </span>
-                      <span className="text-muted/50 tabular-nums w-16 text-right">
+                      <span className="text-muted/50 tabular-nums w-16 text-right" suppressHydrationWarning>
                         {getRelativeTime(tx.timestamp)}
                       </span>
+                      {tx.txHash && (
+                        <a
+                          href={`https://arcscan.io/tx/${tx.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted/40 hover:text-accent transition-colors shrink-0"
+                          title="View on ArcScan"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M6 3H3v10h10v-3" />
+                            <path d="M9 2h5v5" />
+                            <path d="M14 2L7 9" />
+                          </svg>
+                        </a>
+                      )}
                     </div>
                   </div>
 
@@ -215,9 +231,26 @@ export function NetworkClient({ stats, transactions }: Props) {
                     <span className="text-muted truncate">
                       &ldquo;{tx.itemName}&rdquo;
                     </span>
-                    <span className="text-muted/50 tabular-nums shrink-0">
-                      {getRelativeTime(tx.timestamp)}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-muted/50 tabular-nums" suppressHydrationWarning>
+                        {getRelativeTime(tx.timestamp)}
+                      </span>
+                      {tx.txHash && (
+                        <a
+                          href={`https://arcscan.io/tx/${tx.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted/40 hover:text-accent transition-colors"
+                          title="View on ArcScan"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M6 3H3v10h10v-3" />
+                            <path d="M9 2h5v5" />
+                            <path d="M14 2L7 9" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
