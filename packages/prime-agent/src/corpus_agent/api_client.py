@@ -115,6 +115,13 @@ class CorpusAPIClient:
             return r.json()
         return None
 
+    async def create_agent_wallet(self) -> dict | None:
+        """Create a Circle MPC wallet for this Corpus if one doesn't exist."""
+        r = await self._client.post(f"/api/corpus/{self._corpus_id}/wallet")
+        if r.status_code in (200, 201):
+            return r.json()
+        return None
+
     async def sign_payment(
         self,
         *,
@@ -124,6 +131,8 @@ class CorpusAPIClient:
         chain_id: int | None = None,
     ) -> dict | None:
         """Request x402 payment signature from Web's Circle MPC proxy."""
+        if not self._corpus_id:
+            return {"error": "corpus_id not set"}
         payload: dict[str, Any] = {"payee": payee, "amount": amount}
         if token_address:
             payload["tokenAddress"] = token_address

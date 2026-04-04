@@ -121,15 +121,25 @@ export async function signPayment(
   const message = {
     from: payload.from,
     to: payload.to,
-    value: payload.value,
-    validAfter: payload.validAfter,
-    validBefore: payload.validBefore,
+    value: String(payload.value),
+    validAfter: String(payload.validAfter),
+    validBefore: String(payload.validBefore),
     nonce: payload.nonce,
   };
 
+  // Circle SDK expects EIP-712 typed data as a JSON string
+  // All uint256 values must be strings, domain.chainId must be a number
   const typedData = {
+    types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
+      ...types,
+    },
     domain,
-    types,
     primaryType: "TransferWithAuthorization" as const,
     message,
   };

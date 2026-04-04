@@ -26,7 +26,21 @@ def main():
 @click.option("--env-file", default=".env", help="Path to .env file")
 def start(corpus_id: str | None, env_file: str):
     """Start the Prime Agent for a Corpus."""
+    from pathlib import Path
+
     ensure_app_dir()
+
+    # Load .env into os.environ so child processes (Stagehand SEA) inherit them
+    env_path = Path(env_file)
+    if env_path.exists():
+        import os
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
     kwargs: dict = {"_env_file": env_file}
     if corpus_id:
         kwargs["corpus_id"] = corpus_id

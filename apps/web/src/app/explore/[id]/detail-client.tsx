@@ -209,9 +209,6 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                   )}
                 </WorldIdVerify>
               )}
-              <button className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors">
-                Buy Pulse
-              </button>
             </>
           ) : (
             <button

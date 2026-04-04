@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     from corpus_agent.config import Settings
 
 console = Console()
+
+SHUTDOWN_GRACE_PERIOD = 10  # seconds before force-exit on second signal
 
 
 async def run(settings: Settings) -> None:
@@ -31,6 +34,7 @@ async def run(settings: Settings) -> None:
         corpus_config = await api.get_corpus_me()
         if corpus_config:
             settings.corpus_id = corpus_config["id"]
+            api._corpus_id = corpus_config["id"]
             console.print(f"[green]Resolved corpus from API key:[/green] {corpus_config.get('name')} ({corpus_config['id']})")
     if not corpus_config:
         console.print("[red]Failed to fetch corpus config. Check API key and corpus ID.[/red]")
@@ -55,16 +59,26 @@ async def run(settings: Settings) -> None:
     tools = build_all_tools(api=api, db=db, browser=browser, settings=settings)
     console.print(f"[green]Registered {len(tools)} tools.[/green]")
 
-    # Shutdown handler
+    # Shutdown handler — force-exit on second signal
     shutdown_event = asyncio.Event()
+    _signal_count = 0
 
     def _handle_signal():
-        console.print("\n[yellow]Shutting down...[/yellow]")
-        shutdown_event.set()
+        nonlocal _signal_count
+        _signal_count += 1
+        if _signal_count == 1:
+            console.print("\n[yellow]Shutting down gracefully...[/yellow]")
+            shutdown_event.set()
+        else:
+            console.print("\n[red]Forced shutdown.[/red]")
+            os._exit(1)
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, _handle_signal)
+
+    # Lock to prevent concurrent agent_loop executions (shared browser)
+    agent_lock = asyncio.Lock()
 
     # Report online
     await api.update_status(settings.corpus_id, online=True)
@@ -73,18 +87,22 @@ async def run(settings: Settings) -> None:
     async def agent_cycle_task():
         """Run agent loop every cycle_interval seconds."""
         while not shutdown_event.is_set():
-            try:
-                context = AgentContext.from_db(db, corpus_config)
-                await agent_loop(
-                    settings=settings,
-                    tools=tools,
-                    corpus_config=corpus_config,
-                    context=context,
-                    db=db,
-                )
-                db.update_schedule("agent_cycle")
-            except Exception as e:
-                console.print(f"[red]Agent cycle error: {e}[/red]")
+            async with agent_lock:
+                if shutdown_event.is_set():
+                    break
+                try:
+                    context = AgentContext.from_db(db, corpus_config)
+                    await agent_loop(
+                        settings=settings,
+                        tools=tools,
+                        corpus_config=corpus_config,
+                        context=context,
+                        db=db,
+                        shutdown_event=shutdown_event,
+                    )
+                    db.update_schedule("agent_cycle")
+                except Exception as e:
+                    console.print(f"[red]Agent cycle error: {e}[/red]")
             try:
                 await asyncio.wait_for(shutdown_event.wait(), timeout=settings.agent_cycle_interval)
                 break
@@ -153,48 +171,70 @@ async def run(settings: Settings) -> None:
     async def learning_cycle_task():
         """Run a dedicated learning cycle every 6 hours: measure → review → evolve."""
         learning_interval = 6 * 3600  # 6 hours
-        while not shutdown_event.is_set():
-            try:
-                context = AgentContext.from_db(db, corpus_config)
 
-                # Only run if there are unmeasured posts or enough data for a review
-                if context.unmeasured_count > 0 or context.performance_summary.get("total_posts", 0) >= 5:
-                    console.print("[bold magenta]Starting learning cycle...[/bold magenta]")
-                    learning_prompt = build_learning_prompt(corpus_config, context)
-                    await agent_loop(
-                        settings=settings,
-                        tools=tools,
-                        corpus_config=corpus_config,
-                        context=context,
-                        db=db,
-                        system_prompt_override=learning_prompt,
-                    )
-                    db.update_schedule("learning_cycle")
-                    console.print("[bold magenta]Learning cycle complete.[/bold magenta]")
-            except Exception as e:
-                console.print(f"[red]Learning cycle error: {e}[/red]")
+        # Wait for the first agent cycle to complete before starting
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=learning_interval)
+            return
+        except asyncio.TimeoutError:
+            pass
+
+        while not shutdown_event.is_set():
+            async with agent_lock:
+                if shutdown_event.is_set():
+                    break
+                try:
+                    context = AgentContext.from_db(db, corpus_config)
+
+                    # Only run if there are unmeasured posts or enough data for a review
+                    if context.unmeasured_count > 0 or context.performance_summary.get("total_posts", 0) >= 5:
+                        console.print("[bold magenta]Starting learning cycle...[/bold magenta]")
+                        learning_prompt = build_learning_prompt(corpus_config, context)
+                        await agent_loop(
+                            settings=settings,
+                            tools=tools,
+                            corpus_config=corpus_config,
+                            context=context,
+                            db=db,
+                            system_prompt_override=learning_prompt,
+                            shutdown_event=shutdown_event,
+                        )
+                        db.update_schedule("learning_cycle")
+                        console.print("[bold magenta]Learning cycle complete.[/bold magenta]")
+                except Exception as e:
+                    console.print(f"[red]Learning cycle error: {e}[/red]")
             try:
                 await asyncio.wait_for(shutdown_event.wait(), timeout=learning_interval)
                 break
             except asyncio.TimeoutError:
                 pass
 
+    tasks = [
+        asyncio.create_task(agent_cycle_task(), name="agent_cycle"),
+        asyncio.create_task(polling_task(), name="polling"),
+        asyncio.create_task(heartbeat_task(), name="heartbeat"),
+        asyncio.create_task(activity_flush_task(), name="activity_flush"),
+        asyncio.create_task(learning_cycle_task(), name="learning_cycle"),
+    ]
+
     try:
-        await asyncio.gather(
-            agent_cycle_task(),
-            polling_task(),
-            heartbeat_task(),
-            activity_flush_task(),
-            learning_cycle_task(),
-        )
+        # Wait until shutdown is requested, then cancel all tasks
+        await shutdown_event.wait()
+
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
     finally:
-        # Graceful shutdown
-        console.print("[yellow]Reporting offline status...[/yellow]")
+        # Graceful shutdown with timeout
+        console.print("[yellow]Cleaning up...[/yellow]")
         try:
-            await api.update_status(settings.corpus_id, online=False)
+            await asyncio.wait_for(api.update_status(settings.corpus_id, online=False), timeout=5)
         except Exception:
             pass
-        await browser.close()
+        try:
+            await asyncio.wait_for(browser.close(), timeout=5)
+        except Exception:
+            pass
         await api.close()
         db.close()
         console.print("[bold]Agent stopped.[/bold]")

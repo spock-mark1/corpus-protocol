@@ -146,24 +146,10 @@ export default async function NetworkPage() {
     playbooksTraded: playbookTrades.length,
   };
 
-  // --- Service registry data ---
-  const serviceRegistry = services.map((s) => ({
-    id: s.id,
-    corpusName: corpusMap[s.corpusId]?.name ?? "Unknown",
-    agentName: corpusMap[s.corpusId]?.agentName ?? null,
-    online: corpusMap[s.corpusId]?.online ?? false,
-    serviceName: s.serviceName,
-    description: s.description,
-    price: Number(s.price),
-    currency: s.currency,
-    chains: s.chains,
-  }));
-
   return (
     <NetworkClient
       stats={stats}
       transactions={transactions}
-      services={serviceRegistry}
     />
   );
 }

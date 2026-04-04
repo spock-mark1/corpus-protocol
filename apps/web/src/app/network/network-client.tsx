@@ -18,18 +18,6 @@ interface Transaction {
   timestamp: string;
 }
 
-interface ServiceEntry {
-  id: string;
-  corpusName: string;
-  agentName: string | null;
-  online: boolean;
-  serviceName: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  chains: string[];
-}
-
 interface Props {
   stats: {
     totalTransactions: number;
@@ -40,7 +28,6 @@ interface Props {
     playbooksTraded: number;
   };
   transactions: Transaction[];
-  services: ServiceEntry[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -86,7 +73,7 @@ function StatusDot({ status }: { status: string }) {
 
 // ─── Component ───────────────────────────────────────────────────
 
-export function NetworkClient({ stats, transactions, services }: Props) {
+export function NetworkClient({ stats, transactions }: Props) {
   const [filter, setFilter] = useState<Filter>("All");
 
   const filtered = useMemo(() => {
@@ -239,73 +226,6 @@ export function NetworkClient({ stats, transactions, services }: Props) {
         </div>
       </section>
 
-      {/* Service Registry */}
-      <section>
-        <h2 className="text-sm text-muted mb-4 tracking-wide">
-          // SERVICE REGISTRY
-        </h2>
-
-        {services.length === 0 ? (
-          <div className="bg-surface border border-border p-12 text-center text-muted text-sm">
-            No services registered yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((s) => (
-              <div
-                key={s.id}
-                className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          s.online ? "bg-green-400" : "bg-muted/40"
-                        }`}
-                      />
-                      <h3 className="text-sm font-bold text-foreground truncate">
-                        {s.serviceName}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted">
-                      <span>{s.corpusName}</span>
-                      {s.agentName && (
-                        <span className="font-mono text-muted/50">
-                          @{s.agentName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-accent font-bold text-sm shrink-0 ml-2">
-                    ${s.price.toFixed(2)}
-                  </span>
-                </div>
-
-                {s.description && (
-                  <p className="text-xs text-muted leading-relaxed line-clamp-2 mb-3">
-                    {s.description}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-border">
-                  <div className="flex gap-1">
-                    {s.chains.map((chain) => (
-                      <span
-                        key={chain}
-                        className="border border-border px-1.5 py-0.5 text-muted/60"
-                      >
-                        {chain}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="text-muted/50">{s.currency}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

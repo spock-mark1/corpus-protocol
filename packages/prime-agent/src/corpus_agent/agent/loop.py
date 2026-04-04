@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import TYPE_CHECKING
 
@@ -36,6 +37,7 @@ async def agent_loop(
     context: AgentContext,
     db: LocalDB,
     system_prompt_override: str | None = None,
+    shutdown_event: asyncio.Event | None = None,
 ) -> list[dict]:
     """Run one agent cycle: LLM decides tools to call until done."""
     client = get_openai_client(settings.openai_api_key)
@@ -49,6 +51,10 @@ async def agent_loop(
     ]
 
     for iteration in range(settings.max_iterations):
+        if shutdown_event and shutdown_event.is_set():
+            console.print("[yellow]Shutdown requested — aborting agent loop.[/yellow]")
+            break
+
         console.print(f"[dim]Agent iteration {iteration + 1}...[/dim]")
 
         response = await client.chat.completions.create(

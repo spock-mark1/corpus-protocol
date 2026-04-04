@@ -22,11 +22,12 @@ _settings: Settings = None  # type: ignore[assignment]
 
 BROWSER_TIMEOUT = 90  # seconds per browser action
 _x_logged_in = False
+_cookie_dismissed = False
 
 
 async def _ensure_x_login() -> None:
     """Navigate to X and log in if not already authenticated."""
-    global _x_logged_in
+    global _x_logged_in, _cookie_dismissed
     if _x_logged_in:
         return
 
@@ -38,7 +39,11 @@ async def _ensure_x_login() -> None:
     await _browser.goto("https://x.com/home")
     await asyncio.sleep(3)
 
-    # Check if we landed on login page or got redirected
+    # Dismiss cookie banner once (this IS a page DOM element)
+    if not _cookie_dismissed:
+        await _dismiss_cookie_banner()
+        _cookie_dismissed = True
+
     page_info = await _browser.extract(
         "Is the user logged in to X/Twitter? "
         "If you see a compose/post box or timeline feed → logged_in: true. "
@@ -47,26 +52,26 @@ async def _ensure_x_login() -> None:
     )
 
     is_logged_in = bool(page_info.get("logged_in")) if isinstance(page_info, dict) else False
-    console.print(f"[dim]Login check result: {page_info}[/dim]")
 
     if is_logged_in:
         console.print("[green]Already logged in to X.[/green]")
         _x_logged_in = True
+        if not _cookie_dismissed:
+            await _dismiss_cookie_banner()
+            _cookie_dismissed = True
         return
 
     console.print("[bold]Logging in to X...[/bold]")
 
-    # Step 1: Go to login page
     await _browser.goto("https://x.com/i/flow/login")
     await asyncio.sleep(4)
 
-    # Step 2: Enter username
     await _browser.act(f"Click on the username or email input field and type: {_settings.x_username}")
     await asyncio.sleep(2)
     await _browser.act("Click the Next button")
     await asyncio.sleep(4)
 
-    # Step 3: X sometimes asks for email/phone verification before password
+    # X sometimes asks for email/phone verification before password
     verification_check = await _browser.extract(
         "What is the current page asking for? "
         "If it asks for email or phone verification → type: 'verification'. "
@@ -76,22 +81,18 @@ async def _ensure_x_login() -> None:
     )
 
     page_type = verification_check.get("type", "other") if isinstance(verification_check, dict) else "other"
-    console.print(f"[dim]Page type after username: {page_type}[/dim]")
 
     if page_type == "verification" and _settings.x_email:
-        console.print("[dim]Email verification requested — entering email...[/dim]")
         await _browser.act(f"Click on the input field and type: {_settings.x_email}")
         await asyncio.sleep(1)
         await _browser.act("Click the Next button")
         await asyncio.sleep(4)
 
-    # Step 4: Enter password
     await _browser.act(f"Click on the password input field and type: {_settings.x_password}")
     await asyncio.sleep(1)
     await _browser.act("Click the Log in button")
     await asyncio.sleep(5)
 
-    # Step 5: Verify login succeeded
     post_login = await _browser.extract(
         "Is the user now logged in to X/Twitter? "
         "If you see a timeline, home feed, or compose button → logged_in: true. "
@@ -100,13 +101,10 @@ async def _ensure_x_login() -> None:
     )
 
     success = bool(post_login.get("logged_in")) if isinstance(post_login, dict) else False
-    console.print(f"[dim]Post-login check: {post_login}[/dim]")
 
     if success:
         console.print("[bold green]Successfully logged in to X.[/bold green]")
         _x_logged_in = True
-        # Dismiss password save popup if Chrome shows it
-        await _dismiss_popups()
     else:
         console.print("[red]X login may have failed — continuing anyway.[/red]")
 
@@ -124,7 +122,6 @@ def _browser_safe(fn: Callable) -> Callable:
             return {"error": f"Browser action timed out after {BROWSER_TIMEOUT}s"}
         except Exception as e:
             err_name = type(e).__name__
-            # Attempt reconnect on session-level failures
             if "session" in str(e).lower() or "closed" in str(e).lower() or "500" in str(e):
                 try:
                     global _x_logged_in
@@ -156,32 +153,21 @@ async def search_web(query: str) -> dict:
     search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}&hl=en"
     await _browser.goto(search_url)
     await asyncio.sleep(3)
-    # Dismiss any popups (cookie consent, password save, etc.)
-    await _dismiss_popups()
+    await _dismiss_cookie_banner()
     results = await _browser.extract(
         "Extract the title, URL, and summary snippet of the top 5 search results",
     )
     return {"query": query, "results": results}
 
 
-async def _dismiss_popups() -> None:
-    """Dismiss common browser popups (cookie consent, password save, etc.)."""
+async def _dismiss_cookie_banner() -> None:
+    """Dismiss X's cookie consent banner. Always attempts the click without checking first."""
     try:
-        popup_check = await _browser.extract(
-            "Are there any popups or dialogs blocking the page? "
-            "For example: cookie consent, password save prompt, notification request. "
-            "Return {\"has_popup\": true, \"type\": \"cookie|password|notification|other\"} or {\"has_popup\": false}.",
-            schema={"type": "object", "properties": {"has_popup": {"type": "boolean"}, "type": {"type": "string"}}, "required": ["has_popup"]},
+        await _browser.act(
+            "Click the 'Accept all cookies' button at the bottom of the page. "
+            "It is a dark button with white text that says 'Accept all cookies'."
         )
-        if isinstance(popup_check, dict) and popup_check.get("has_popup"):
-            popup_type = popup_check.get("type", "other")
-            if popup_type == "password":
-                await _browser.act("Click 'Never' or 'No thanks' or the dismiss button on the password save dialog")
-            elif popup_type == "cookie":
-                await _browser.act("Click 'Accept all' or 'Reject all' or 'Tout accepter' or 'Tout refuser' to dismiss the cookie dialog")
-            else:
-                await _browser.act("Dismiss or close the popup dialog")
-            await asyncio.sleep(2)
+        await asyncio.sleep(2)
     except Exception:
         pass
 
@@ -200,26 +186,41 @@ async def browse_page(url: str, instruction: str) -> dict:
 async def post_to_x(content: str) -> dict:
     if len(content) > 280:
         return {"error": f"Post is {len(content)} chars — exceeds 280 char limit. Shorten it and try again."}
-    await _browser.goto("https://x.com/compose/post")
-    await asyncio.sleep(3)
-    await _browser.act(f"Click on the post text area and type exactly: {content}")
+
+    # Dismiss cookie banner first — it can block interactions
+    await _dismiss_cookie_banner()
+
+    # Use Playwright keyboard directly — bypasses Stagehand LLM entirely
+    # Step 1: Press 'N' to open compose modal (X keyboard shortcut)
+    await _browser.keyboard_press("n")
     await asyncio.sleep(2)
 
-    # Click the Post button using CSS selector for reliability
-    await _browser.act("Click the button with text 'Post' at the bottom right of the compose dialog")
-    await asyncio.sleep(5)
+    # Step 2: Type content (text area is auto-focused by X after pressing N)
+    await _browser.keyboard_type(content)
+    await asyncio.sleep(2)
 
-    # Verify the post was actually published by checking if compose dialog closed
+    # Step 3: Press Ctrl+Enter to post (X keyboard shortcut)
+    await _browser.keyboard_press("Control+Enter")
+    await asyncio.sleep(4)
+
+    # Step 4: Verify — if modal closed, post succeeded
     verify = await _browser.extract(
-        "Is the compose/post dialog still open? "
-        "If you see the compose text area with a Post button → still_open: true. "
-        "If the dialog closed and you see the timeline → still_open: false.",
-        schema={"type": "object", "properties": {"still_open": {"type": "boolean"}}, "required": ["still_open"]},
+        "Is there a compose tweet dialog/modal currently open on the page? "
+        "If no dialog is open and you see the timeline → dialog_open: false. "
+        "If the compose dialog is still visible with text → dialog_open: true.",
+        schema={"type": "object", "properties": {"dialog_open": {"type": "boolean"}}, "required": ["dialog_open"]},
     )
 
-    still_open = bool(verify.get("still_open")) if isinstance(verify, dict) else True
-    if still_open:
-        return {"error": "Post button click failed — compose dialog is still open. Tweet was NOT published."}
+    dialog_open = bool(verify.get("dialog_open")) if isinstance(verify, dict) else True
+    if dialog_open:
+        # Close modal: Escape → Discard (no beforeunload from modal)
+        try:
+            await _browser.act("Press the Escape key")
+            await asyncio.sleep(1)
+            await _browser.act("Click the 'Discard' button")
+        except Exception:
+            pass
+        return {"error": "Post failed — compose dialog still open. Tweet was NOT published."}
 
     return {"status": "posted", "content": content, "channel": "X"}
 
@@ -268,7 +269,6 @@ async def search_x(query: str) -> dict:
 @_browser_safe
 @_x_login_required
 async def check_post_performance(content_snippet: str) -> dict:
-    """Find a recent post by content snippet and extract its engagement metrics."""
     username = _settings.x_username if _settings else ""
     if not username:
         return {"error": "X username not configured"}

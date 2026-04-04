@@ -29,9 +29,12 @@ def _get_signer() -> X402Signer:
 
 @tool(
     "discover_services",
-    "Search the x402 service marketplace for available services and Playbooks from other Corpuses",
+    "Search the x402 service marketplace. category MUST be one of: 'Sales' or 'Analytics'.",
 )
-async def discover_services(category: str = "", target: str = "") -> dict:
+async def discover_services(category: str = "Sales", target: str = "") -> dict:
+    allowed = {"sales", "analytics"}
+    if category.lower() not in allowed:
+        category = "Sales"
     services = await _api.discover_services(
         category=category or None,
         target=target or None,

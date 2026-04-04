@@ -7,7 +7,7 @@ import { broadcastTransferWithAuthorization } from "@/lib/circle";
 import { fulfillInstant } from "@/lib/fulfillment";
 
 // Arc network config (USDC = native gas token)
-const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
+const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 11155111);
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
 
 

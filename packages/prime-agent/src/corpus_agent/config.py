@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     x_email: str = ""
 
     # Agent behaviour
-    agent_cycle_interval: int = Field(default=300, description="Seconds between agent cycles")
+    agent_cycle_interval: int = Field(default=30, description="Seconds between agent cycles")
     polling_interval: int = Field(default=10, description="Seconds between API polls")
     heartbeat_interval: int = Field(default=60, description="Seconds between heartbeats")
     max_iterations: int = Field(default=20, description="Max tool-call iterations per cycle")

@@ -30,7 +30,7 @@ class X402Signer:
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Fetch agent wallet info from Web API."""
+        """Fetch agent wallet info from Web API. Create wallet if missing."""
         if self._initialized:
             return
         try:
@@ -41,7 +41,16 @@ class X402Signer:
                 self._initialized = True
                 console.print(f"[green]x402 signer ready (Circle MPC): {self._wallet_address}[/green]")
             else:
-                console.print("[yellow]No agent wallet found. x402 signing disabled.[/yellow]")
+                # Wallet doesn't exist — try to create one
+                console.print("[yellow]No agent wallet found. Creating one...[/yellow]")
+                created = await self._api.create_agent_wallet()
+                if created and "walletId" in created:
+                    self._wallet_id = created["walletId"]
+                    self._wallet_address = created["address"]
+                    self._initialized = True
+                    console.print(f"[green]x402 wallet created: {self._wallet_address}[/green]")
+                else:
+                    console.print("[red]Wallet creation failed. x402 signing disabled.[/red]")
         except Exception as e:
             console.print(f"[yellow]x402 signer init failed: {e}[/yellow]")
 
@@ -68,6 +77,7 @@ class X402Signer:
             return {"error": "x402 signer not initialized"}
 
         try:
+            console.print(f"[dim]x402 sign: payee={payee}, amount={amount}, chain={chain_id}[/dim]")
             result = await self._api.sign_payment(
                 payee=payee,
                 amount=amount,
@@ -76,7 +86,8 @@ class X402Signer:
             )
 
             if not result or "error" in result:
-                return {"error": result.get("error", "Signing request failed")}
+                err_detail = result.get("details", "") if result else ""
+                return {"error": f"{result.get('error', 'Signing request failed')} {err_detail}".strip()}
 
             return {
                 "status": "signed",

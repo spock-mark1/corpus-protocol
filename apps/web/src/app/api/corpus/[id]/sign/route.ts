@@ -6,7 +6,7 @@ import { verifyAgentApiKey } from "@/lib/auth";
 import { signPayment } from "@/lib/circle";
 import crypto from "crypto";
 
-const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
+const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 11155111);
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1";
 
 // POST /api/corpus/:id/sign — Signing proxy for x402 payments
@@ -97,6 +97,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("Signing error:", err);
-    return Response.json({ error: "Signing failed" }, { status: 500 });
+    return Response.json({ error: "Signing failed", details: String(err) }, { status: 500 });
   }
 }
