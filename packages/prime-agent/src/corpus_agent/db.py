@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS approval_cache (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS spending_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount      REAL NOT NULL,
+    currency    TEXT NOT NULL DEFAULT 'USDC',
+    category    TEXT NOT NULL,
+    description TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS corpus_config (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
@@ -228,6 +237,29 @@ class LocalDB:
         self._conn.execute("UPDATE playbooks SET applied = 0")
         self._conn.execute("UPDATE playbooks SET applied = 1 WHERE id = ?", (playbook_id,))
         self._conn.commit()
+
+    # ── Spending Tracker ────────────────────────────────────
+
+    def record_spending(self, amount: float, category: str, description: str = "", currency: str = "USDC") -> None:
+        self._conn.execute(
+            "INSERT INTO spending_log (amount, currency, category, description) VALUES (?, ?, ?, ?)",
+            (amount, currency, category, description),
+        )
+        self._conn.commit()
+
+    def get_spending_today(self) -> float:
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM spending_log WHERE date(created_at) = date('now')"
+        ).fetchone()
+        return float(row["total"]) if row else 0.0
+
+    def get_spending_period(self, days: int = 30) -> float:
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM spending_log "
+            "WHERE created_at >= datetime('now', ?)",
+            (f"-{days} days",),
+        ).fetchone()
+        return float(row["total"]) if row else 0.0
 
     # ── Cleanup ────────────────────────────────────────────
 

@@ -189,6 +189,34 @@ class CorpusAPIClient:
             return r.json()
         return None
 
+    # ── Transfers (Hedera) ───────────���─────────────────────
+
+    async def request_transfer(
+        self,
+        *,
+        to_account: str,
+        amount: float,
+        currency: str = "HBAR",
+        token_id: str | None = None,
+    ) -> dict | None:
+        """Execute HBAR or HTS token transfer via Web API."""
+        payload: dict[str, Any] = {
+            "to": to_account,
+            "amount": amount,
+            "currency": currency,
+        }
+        if token_id:
+            payload["tokenId"] = token_id
+        r = await self._client.post(
+            f"/api/corpus/{self._corpus_id}/transfer", json=payload
+        )
+        if r.status_code in (200, 201):
+            return r.json()
+        try:
+            return r.json()
+        except Exception:
+            return {"error": f"Transfer failed with status {r.status_code}"}
+
     # ── Jobs ───────────────────────────────────────────────
 
     async def get_pending_jobs(self) -> list[dict]:
@@ -207,6 +235,44 @@ class CorpusAPIClient:
     async def get_job_result(self, job_id: str) -> dict | None:
         r = await self._client.get(f"/api/jobs/{job_id}/result")
         if r.status_code == 200:
+            return r.json()
+        return None
+
+    # ── Playbooks ──────────────────────────────────────────
+
+    async def publish_playbook(
+        self,
+        *,
+        title: str,
+        category: str,
+        channel: str,
+        description: str,
+        price: float,
+        tags: list[str] | None = None,
+        content: dict | None = None,
+        impressions: int = 0,
+        engagement_rate: float = 0,
+        conversions: int = 0,
+        period_days: int = 30,
+    ) -> dict | None:
+        """Publish a Playbook to the marketplace."""
+        r = await self._client.post(
+            "/api/playbooks",
+            json={
+                "title": title,
+                "category": category,
+                "channel": channel,
+                "description": description,
+                "price": price,
+                "tags": tags or [],
+                "content": content,
+                "impressions": impressions,
+                "engagementRate": engagement_rate,
+                "conversions": conversions,
+                "periodDays": period_days,
+            },
+        )
+        if r.status_code in (200, 201):
             return r.json()
         return None
 

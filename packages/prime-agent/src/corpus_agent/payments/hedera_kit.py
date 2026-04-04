@@ -38,7 +38,7 @@ class HederaKit:
     async def get_balance(self, account_id: str = "") -> dict[str, Any]:
         """Query HBAR balance via Mirror Node (public API)."""
         try:
-            corpus = await self._api.get_config()
+            corpus = await self._api.get_corpus(self._api._corpus_id)
             acct = account_id or (corpus.get("hederaTokenId", "") if corpus else "")
             if not acct:
                 return {"error": "No Hedera account configured"}

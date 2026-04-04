@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cppCorpus, cppCommerceServices, cppCommerceJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
+import { broadcastTransferWithAuthorization } from "@/lib/circle";
 
 // Arc network config (USDC = native gas token)
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 480);
@@ -223,7 +224,34 @@ export async function POST(
       return Response.json({ error: "Invalid payment signature", details: String(sigErr) }, { status: 403 });
     }
 
-    // 7. Create commerce job
+    // 7. Broadcast EIP-3009 transferWithAuthorization to Arc
+    let txHash: string | null = null;
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const result = await broadcastTransferWithAuthorization({
+        from,
+        to,
+        value,
+        validAfter: Number(payment.validAfter ?? 0),
+        validBefore: Number(payment.validBefore ?? now + 300),
+        nonce: nonce ?? "0x" + "0".repeat(64),
+        signature,
+        chainId: ARC_CHAIN_ID,
+        tokenAddress: USDC_ADDRESS,
+      });
+      txHash = result.txHash;
+    } catch (broadcastErr) {
+      console.error("Arc broadcast failed:", broadcastErr);
+      // If ARC_RELAYER_PRIVATE_KEY is not set, proceed without broadcast (testnet/demo mode)
+      if (process.env.ARC_RELAYER_PRIVATE_KEY) {
+        return Response.json(
+          { error: "On-chain payment broadcast failed", details: String(broadcastErr) },
+          { status: 502 }
+        );
+      }
+    }
+
+    // 8. Create commerce job
     const body = await request.json().catch(() => ({}));
     const payload = body.payload ?? body;
 
@@ -240,7 +268,10 @@ export async function POST(
       })
       .returning();
 
-    return Response.json({ id: job.id, jobId: job.id, status: "pending" }, { status: 201 });
+    return Response.json(
+      { id: job.id, jobId: job.id, status: "pending", txHash },
+      { status: 201 }
+    );
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

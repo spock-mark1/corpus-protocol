@@ -13,6 +13,7 @@ def build_system_prompt(corpus_config: dict, context: AgentContext) -> str:
     channels = corpus_config.get("channels", ["X"])
     description = corpus_config.get("description", "")
     threshold = corpus_config.get("approvalThreshold", 10)
+    gtm_budget = corpus_config.get("gtmBudget", 200)
 
     channels_str = ", ".join(channels) if isinstance(channels, list) else str(channels)
 
@@ -57,10 +58,19 @@ Autonomously execute GTM strategy: research markets, create content, post on soc
 ## Payment Rules
 - Approval threshold: ${threshold}
 - Below threshold: execute autonomously (use transfer_hbar or purchase_service directly)
-- Above threshold: MUST call request_approval first, then check_approval to get result
+- Above threshold: MUST call request_approval first, then check_approval, then execute_approved_transfer
 - Inter-Corpus purchases (x402): use discover_services → purchase_service
 - Internal economy (dividends): use transfer_hbar
 - Revenue from fulfilled jobs: call report_revenue after fulfill_job
+
+## GTM Budget
+- Monthly budget: ${gtm_budget} USDC
+- Check the "GTM Budget" line in Current Context before ANY purchase
+- If monthly spending would exceed the budget after a purchase, DO NOT execute it
+- Budget covers: service purchases, playbook purchases, and all x402 transactions
+- Earning revenue (fulfilling jobs) does NOT count against the budget
+- If budget is exhausted, focus on free actions: posting, research, engagement, fulfilling incoming jobs
+- If you need to exceed budget, request approval first
 
 ## Constraints
 - NEVER post duplicate content (check get_content_history first)

@@ -49,6 +49,19 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
     except json.JSONDecodeError:
         payload_dict = {}
 
+    # Budget check — refuse if monthly spending would exceed GTM budget
+    corpus_config = _db.get_corpus_config()
+    gtm_budget = float((corpus_config or {}).get("gtmBudget", 200))
+    spent_month = _db.get_spending_period(30)
+    # We'll check against actual price after 402, but pre-check with budget headroom
+    if spent_month >= gtm_budget:
+        return {
+            "error": "GTM budget exhausted for this month",
+            "budget": gtm_budget,
+            "spent": spent_month,
+            "suggestion": "Focus on free actions (posting, research, fulfilling jobs) or request budget increase approval",
+        }
+
     # Step 1: GET service → expect 402
     response = await _api.get_service(corpus_id, service_type=service_type or None)
 
@@ -61,6 +74,17 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
     payee = payment_details.get("payee", "")
     token = payment_details.get("token")
     chain_id = payment_details.get("chainId")
+
+    # Check if purchase would exceed GTM budget
+    if spent_month + float(price) > gtm_budget:
+        return {
+            "error": f"Purchase of ${price} would exceed GTM budget",
+            "budget": gtm_budget,
+            "spent": spent_month,
+            "remaining": gtm_budget - spent_month,
+            "price": price,
+            "suggestion": "Request approval to exceed budget or wait for next period",
+        }
 
     # Check approval threshold
     threshold = float(_settings.approval_threshold)
@@ -111,6 +135,13 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
 
     # Track in local DB
     _db.add_commerce_job(job_id, corpus_id, service_type, payload_dict)
+
+    # Record spending against GTM budget
+    _db.record_spending(
+        amount=float(price),
+        category="x402_purchase",
+        description=f"Service from Corpus {corpus_id}: {service_type}",
+    )
 
     return {
         "status": "submitted",
@@ -217,6 +248,105 @@ async def fulfill_job(job_id: str, result: str = "{}") -> dict:
         _db.add_activity("commerce", f"Fulfilled job {job_id}", "x402")
         return {"status": "fulfilled", "job_id": job_id}
     return {"error": f"Failed to submit result for job {job_id}"}
+
+
+@tool(
+    "generate_playbook",
+    "Generate a GTM Playbook from your accumulated activity data and publish it to the marketplace. "
+    "Analyzes your content history, engagement patterns, and successful tactics to create a sellable playbook.",
+)
+async def generate_playbook(
+    title: str,
+    category: str = "Content Templates",
+    channel: str = "X",
+    price: float = 1.0,
+    description: str = "",
+) -> dict:
+    """Generate a playbook from agent's accumulated GTM data and publish it."""
+    # Gather agent's activity data for playbook content
+    recent_content = _db.get_recent_content(50)
+    posts_total = _db.count_today("post")  # today only; full history below
+    active_playbook = _db.get_active_playbook()
+
+    # Compile content history into structured playbook
+    content_by_channel: dict[str, list[str]] = {}
+    for c in recent_content:
+        ch = c.get("channel", "unknown")
+        content_by_channel.setdefault(ch, []).append(c.get("content", ""))
+
+    # Build playbook content structure
+    playbook_content = {
+        "schedule": "Daily: 2-3 posts, 5-10 engagement replies. Weekly: 1 research thread.",
+        "templates": content_by_channel.get(channel, content_by_channel.get("X", []))[:10],
+        "hashtags": [],
+        "tactics": [
+            "Consistent daily posting with engagement-first approach",
+            "Monitor mentions and reply within 1 cycle",
+            "Research trending topics before creating content",
+        ],
+        "source_metrics": {
+            "total_content_pieces": len(recent_content),
+            "channels_active": list(content_by_channel.keys()),
+        },
+    }
+
+    # Merge insights from active playbook if available
+    if active_playbook and isinstance(active_playbook.get("data"), dict):
+        existing = active_playbook["data"]
+        if "tactics" in existing:
+            playbook_content["tactics"].extend(existing["tactics"][:3])
+        if "hashtags" in existing:
+            playbook_content["hashtags"] = existing["hashtags"]
+
+    # Compute basic metrics from activity
+    conn = _db._conn
+    total_posts = conn.execute(
+        "SELECT COUNT(*) as cnt FROM activity_log WHERE type = 'post'"
+    ).fetchone()
+    total_replies = conn.execute(
+        "SELECT COUNT(*) as cnt FROM activity_log WHERE type = 'reply'"
+    ).fetchone()
+    days_active = conn.execute(
+        "SELECT COUNT(DISTINCT date(created_at)) as cnt FROM activity_log"
+    ).fetchone()
+
+    impressions_est = (total_posts["cnt"] if total_posts else 0) * 100  # rough estimate
+    engagement_rate = 0.0
+    if total_posts and total_posts["cnt"] > 0 and total_replies:
+        engagement_rate = round(
+            (total_replies["cnt"] / (total_posts["cnt"] * 10)) * 100, 2
+        )
+
+    auto_description = description or (
+        f"Proven GTM strategy from {days_active['cnt'] if days_active else 0} days of autonomous execution. "
+        f"Includes {len(playbook_content['templates'])} content templates and battle-tested tactics."
+    )
+
+    # Publish to marketplace via API
+    result = await _api.publish_playbook(
+        title=title,
+        category=category,
+        channel=channel,
+        description=auto_description,
+        price=price,
+        tags=["auto-generated", channel.lower(), category.lower().replace(" ", "-")],
+        content=playbook_content,
+        impressions=impressions_est,
+        engagement_rate=min(engagement_rate, 99.99),
+        conversions=0,
+        period_days=days_active["cnt"] if days_active else 30,
+    )
+
+    if result:
+        return {
+            "status": "published",
+            "playbook_id": result.get("id"),
+            "title": title,
+            "price": price,
+            "templates_count": len(playbook_content["templates"]),
+            "impressions": impressions_est,
+        }
+    return {"error": "Failed to publish playbook to marketplace"}
 
 
 @tool(

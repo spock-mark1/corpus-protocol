@@ -21,6 +21,9 @@ class AgentContext:
     recent_content: list[dict]
     active_playbook: dict | None
     corpus_config: dict
+    spending_today: float
+    spending_month: float
+    gtm_budget: float
 
     @classmethod
     def from_db(cls, db: LocalDB, corpus_config: dict) -> AgentContext:
@@ -37,6 +40,8 @@ class AgentContext:
         except Exception:
             pass
 
+        gtm_budget = float(corpus_config.get("gtmBudget", 200))
+
         return cls(
             current_time=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             posts_today=db.count_today("post"),
@@ -48,9 +53,13 @@ class AgentContext:
             recent_content=db.get_recent_content(5),
             active_playbook=playbook,
             corpus_config=corpus_config,
+            spending_today=db.get_spending_today(),
+            spending_month=db.get_spending_period(30),
+            gtm_budget=gtm_budget,
         )
 
     def to_context_block(self) -> str:
+        budget_remaining = self.gtm_budget - self.spending_month
         lines = [
             f"Current time: {self.current_time}",
             f"Posts today: {self.posts_today}",
@@ -59,6 +68,7 @@ class AgentContext:
             f"Pending approvals: {self.pending_approvals}",
             f"Pending incoming jobs (to fulfill): {self.pending_jobs}",
             f"Last agent cycle: {self.last_agent_cycle}",
+            f"GTM Budget: ${self.gtm_budget:.2f}/month | Spent today: ${self.spending_today:.2f} | Spent this month: ${self.spending_month:.2f} | Remaining: ${budget_remaining:.2f}",
         ]
         if self.recent_content:
             lines.append("Recent posts (avoid duplicates):")

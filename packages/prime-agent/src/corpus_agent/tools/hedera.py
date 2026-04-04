@@ -77,20 +77,56 @@ async def create_pulse_token(name: str, symbol: str, initial_supply: int = 10000
     }
 
 
-@tool("airdrop_pulse", "Distribute Pulse tokens to Patron accounts. Requires Creator approval.")
+@tool("airdrop_pulse", "Distribute Pulse tokens to Patron accounts. Requires Creator approval for large amounts.")
 async def airdrop_pulse(token_id: str, recipients: str) -> dict:
     """recipients: JSON string of [{account: '0.0.xxx', amount: 1000}, ...]"""
-    result = await _api.create_approval(
-        _settings.corpus_id,
-        type_="transaction",
-        title=f"Pulse airdrop: token {token_id}",
-        description=f"Recipients: {recipients}. Airdrop executed by Web via HTS.",
+    import json as _json
+    try:
+        recipient_list = _json.loads(recipients) if isinstance(recipients, str) else recipients
+    except _json.JSONDecodeError:
+        return {"error": "recipients must be valid JSON: [{account: '...', amount: N}, ...]"}
+
+    total_amount = sum(r.get("amount", 0) for r in recipient_list)
+    threshold = float(_settings.approval_threshold)
+
+    if total_amount >= threshold:
+        result = await _api.create_approval(
+            _settings.corpus_id,
+            type_="transaction",
+            title=f"Pulse airdrop: token {token_id}, total {total_amount}",
+            description=f"Recipients: {recipients}",
+            amount=total_amount,
+        )
+        return {
+            "status": "approval_requested",
+            "approval_id": result.get("id") if result else None,
+            "action": "airdrop_pulse",
+        }
+
+    # Execute transfers via Web API
+    results = []
+    for r in recipient_list:
+        acct = r.get("account", "")
+        amt = r.get("amount", 0)
+        if acct and amt > 0:
+            res = await _api.request_transfer(
+                to_account=acct, amount=amt, currency="HTS", token_id=token_id
+            )
+            results.append({"account": acct, "amount": amt, "result": res})
+    return {"status": "completed", "transfers": results}
+
+
+@tool("execute_approved_transfer", "Execute a previously approved HBAR or token transfer. Call after check_approval returns 'approved'.")
+async def execute_approved_transfer(to_account: str, amount: float, currency: str = "HBAR", token_id: str = "") -> dict:
+    result = await _api.request_transfer(
+        to_account=to_account,
+        amount=amount,
+        currency=currency,
+        token_id=token_id or None,
     )
-    return {
-        "status": "approval_requested",
-        "approval_id": result.get("id") if result else None,
-        "action": "airdrop_pulse",
-    }
+    if result and "error" not in result:
+        return {"status": "completed", "to": to_account, "amount": amount, "result": result}
+    return result or {"error": "Transfer execution failed"}
 
 
 @tool("get_pulse_balance", "Check Pulse token balance for a specific account via Mirror Node")
