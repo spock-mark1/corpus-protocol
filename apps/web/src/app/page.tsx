@@ -124,7 +124,7 @@ export default async function Home() {
               className="bg-surface border border-border p-6 hover:bg-surface-hover transition-colors group"
             >
               <div className="text-xs text-muted mb-3">[{f.tag}]</div>
-              <h3 className="text-lg font-bold text-accent mb-2 group-hover:text-white transition-colors">
+              <h3 className="text-lg font-bold text-accent mb-2 group-hover:text-accent transition-colors">
                 {f.title}
               </h3>
               <p className="text-sm text-muted leading-relaxed">{f.desc}</p>

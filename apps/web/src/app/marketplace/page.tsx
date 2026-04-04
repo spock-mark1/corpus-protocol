@@ -260,7 +260,7 @@ export default function MarketplacePage() {
                     </span>
                     <span className="text-xs text-muted">{p.channel}</span>
                   </div>
-                  <h3 className="text-sm font-bold text-accent mb-1 group-hover:text-white transition-colors">
+                  <h3 className="text-sm font-bold text-accent mb-1 group-hover:text-accent transition-colors">
                     {p.title}
                   </h3>
                   <p className="text-xs text-muted mb-4 line-clamp-2">

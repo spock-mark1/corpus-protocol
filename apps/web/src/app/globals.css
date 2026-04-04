@@ -2,12 +2,16 @@
 
 :root {
   --background: #0a0a0a;
-  --foreground: #d4d4d4;
-  --accent: #ffffff;
+  --foreground: #9a9a9a;
+  --accent: #bababa;
   --muted: #525252;
   --border: #262626;
   --surface: #111111;
   --surface-hover: #1a1a1a;
+
+  /* Nav keeps original brightness */
+  --nav-foreground: #d4d4d4;
+  --nav-accent: #ffffff;
 }
 
 @theme inline {
@@ -18,6 +22,8 @@
   --color-border: var(--border);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav-accent: var(--nav-accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -29,7 +35,7 @@ body {
 }
 
 ::selection {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(186, 186, 186, 0.15);
 }
 
 /* Scrollbar */

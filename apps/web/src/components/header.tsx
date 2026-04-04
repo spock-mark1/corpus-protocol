@@ -22,7 +22,7 @@ export function Header() {
     <header className="border-b border-border px-6 py-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-accent font-bold tracking-wider text-sm">
+          <Link href="/" className="text-nav-accent font-bold tracking-wider text-sm">
             CORPUS
           </Link>
           <nav className="hidden md:flex items-center gap-6">
@@ -32,8 +32,8 @@ export function Header() {
                 href={item.href}
                 className={`text-sm transition-colors flex items-center gap-1.5 ${
                   pathname === item.href
-                    ? "text-accent"
-                    : "text-muted hover:text-foreground"
+                    ? "text-nav-accent"
+                    : "text-muted hover:text-nav-foreground"
                 }`}
               >
                 {item.label}
@@ -50,8 +50,8 @@ export function Header() {
             href="/dashboard"
             className={`hidden md:inline-flex text-sm transition-colors items-center gap-1.5 ${
               pathname === "/dashboard"
-                ? "text-accent"
-                : "text-muted hover:text-foreground"
+                ? "text-nav-accent"
+                : "text-muted hover:text-nav-foreground"
             }`}
           >
             Dashboard
@@ -63,20 +63,20 @@ export function Header() {
             href="/launch"
             className={`hidden md:inline-flex border px-4 py-2 text-sm transition-colors ${
               pathname === "/launch"
-                ? "border-accent text-accent"
-                : "border-border text-foreground hover:bg-surface-hover"
+                ? "border-accent text-nav-accent"
+                : "border-border text-nav-foreground hover:bg-surface-hover"
             }`}
           >
             Launchpad
           </Link>
           {primaryWallet ? (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-foreground font-mono bg-surface border border-border px-3 py-1.5">
+              <span className="text-xs text-nav-foreground font-mono bg-surface border border-border px-3 py-1.5">
                 {truncatedAddress}
               </span>
               <button
                 onClick={() => handleLogOut()}
-                className="text-xs text-muted hover:text-foreground transition-colors"
+                className="text-xs text-muted hover:text-nav-foreground transition-colors"
               >
                 Disconnect
               </button>
@@ -84,7 +84,7 @@ export function Header() {
           ) : (
             <button
               onClick={() => setShowAuthFlow(true)}
-              className="border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              className="border border-border px-4 py-2 text-sm text-nav-foreground hover:bg-surface-hover transition-colors cursor-pointer"
             >
               Connect Wallet
             </button>

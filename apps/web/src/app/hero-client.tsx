@@ -57,7 +57,7 @@ export function HeroClient() {
           );
 
           const alpha = 0.15 + val * 0.5;
-          ctx!.fillStyle = `rgba(212, 212, 212, ${alpha})`;
+          ctx!.fillStyle = `rgba(154, 154, 154, ${alpha})`;
           ctx!.fillText(chars[idx], x * fontSize * 0.6, y * fontSize + fontSize);
         }
       }

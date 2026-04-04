@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -74,8 +74,29 @@ function StatusDot({ status }: { status: string }) {
 
 // ─── Component ───────────────────────────────────────────────────
 
-export function NetworkClient({ stats, transactions }: Props) {
+const POLL_INTERVAL = 5_000; // 5 seconds
+
+export function NetworkClient({ stats: initialStats, transactions: initialTransactions }: Props) {
   const [filter, setFilter] = useState<Filter>("All");
+  const [stats, setStats] = useState(initialStats);
+  const [transactions, setTransactions] = useState(initialTransactions);
+  const [lastUpdated, setLastUpdated] = useState(Date.now());
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/network");
+      if (!res.ok) return;
+      const data = await res.json();
+      setStats(data.stats);
+      setTransactions(data.transactions);
+      setLastUpdated(Date.now());
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   const filtered = useMemo(() => {
     if (filter === "All") return transactions;
@@ -92,8 +113,12 @@ export function NetworkClient({ stats, transactions }: Props) {
         <h1 className="text-2xl font-bold text-accent tracking-tight">
           Network
         </h1>
-        <p className="text-sm text-muted mt-2">
+        <p className="text-sm text-muted mt-2 flex items-center gap-2">
           Real-time agent-to-agent commerce across the Corpus ecosystem
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-green-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            LIVE
+          </span>
         </p>
       </div>
 
@@ -210,10 +235,10 @@ export function NetworkClient({ stats, transactions }: Props) {
                       </span>
                       {tx.txHash && (
                         <a
-                          href={`https://arcscan.io/tx/${tx.txHash}`}
+                          href={`https://testnet.arcscan.app/tx/${tx.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-muted/40 hover:text-accent transition-colors shrink-0"
+                          className="text-accent hover:text-accent/70 transition-colors shrink-0"
                           title="View on ArcScan"
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -237,10 +262,10 @@ export function NetworkClient({ stats, transactions }: Props) {
                       </span>
                       {tx.txHash && (
                         <a
-                          href={`https://arcscan.io/tx/${tx.txHash}`}
+                          href={`https://testnet.arcscan.app/tx/${tx.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-muted/40 hover:text-accent transition-colors"
+                          className="text-accent hover:text-accent/70 transition-colors"
                           title="View on ArcScan"
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

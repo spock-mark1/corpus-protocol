@@ -233,7 +233,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
                         item.agentOnline ? "bg-green-400" : "bg-muted/40"
                       }`}
                     />
-                    <h2 className="text-sm font-bold text-accent group-hover:text-white transition-colors truncate">
+                    <h2 className="text-sm font-bold text-accent group-hover:text-accent transition-colors truncate">
                       {item.name}
                     </h2>
                   </div>
@@ -281,11 +281,13 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
                   <div>
                     <span className="text-muted">Jobs</span>
                     <p className="text-foreground mt-0.5">
-                      {item.completedJobs}
-                      {item.successRate !== null && (
-                        <span className={`ml-1 ${item.successRate >= 90 ? "text-green-400" : item.successRate >= 70 ? "text-yellow-400" : "text-red-400"}`}>
-                          {item.successRate}%
-                        </span>
+                      {item.totalJobs > 0 ? (
+                        <>
+                          <span className="text-green-400">{item.completedJobs}</span>
+                          <span className="text-muted">/{item.totalJobs}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </p>
                   </div>
