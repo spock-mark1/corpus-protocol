@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { cppCorpus } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
-import { signPayment } from "@/lib/circle";
+import { signPayment, ensureFunded } from "@/lib/circle";
 import crypto from "crypto";
 
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 5042002);
@@ -61,7 +61,24 @@ export async function POST(
       );
     }
 
-    // 5. Build EIP-3009 payload and sign via Circle MPC
+    // 5. Check USDC balance before signing (avoid signing then failing at broadcast)
+    const requiredAmount = BigInt(amount);
+    const { sufficient, balance } = await ensureFunded(corpus.agentWalletAddress, requiredAmount);
+    if (!sufficient) {
+      return Response.json(
+        {
+          error: "Insufficient USDC balance",
+          balance: balance.toString(),
+          required: requiredAmount.toString(),
+          amountUsd,
+          walletAddress: corpus.agentWalletAddress,
+          message: "Agent wallet does not have enough USDC. Faucet funding was attempted but balance is still insufficient.",
+        },
+        { status: 402 },
+      );
+    }
+
+    // 6. Build EIP-3009 payload and sign via Circle MPC
     const now = Math.floor(Date.now() / 1000);
     const nonce = "0x" + crypto.randomBytes(32).toString("hex");
 
@@ -76,7 +93,7 @@ export async function POST(
       tokenAddress: tokenAddress ?? USDC_ADDRESS,
     });
 
-    // 6. Return full X-PAYMENT header value
+    // 7. Return full X-PAYMENT header value
     const paymentHeader = JSON.stringify({
       signature: signature.signature,
       from: corpus.agentWalletAddress,

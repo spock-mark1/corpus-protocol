@@ -125,6 +125,7 @@ export const cppApprovals = pgTable(
 
     decidedAt: timestamp("decidedAt", { mode: "date", precision: 3 }),
     decidedBy: text("decidedBy"),
+    txHash: text("txHash"),
 
     createdAt: timestamp("createdAt", { mode: "date", precision: 3 }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 }).notNull().$onUpdate(() => new Date()),

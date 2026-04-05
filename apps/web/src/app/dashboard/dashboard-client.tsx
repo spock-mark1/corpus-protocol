@@ -32,6 +32,7 @@ interface DashboardData {
     status: "approved" | "rejected";
     decidedBy: string | null;
     decidedAt: string | null;
+    txHash: string | null;
     timestamp: string;
   }[];
   activities: {
@@ -175,28 +176,39 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
   const [approvals, setApprovals] = useState(initialApprovals);
   const [approvalHistory, setApprovalHistory] = useState(initialHistory);
   const [approvalTab, setApprovalTab] = useState<"pending" | "history">("pending");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const { address } = useWallet();
 
   async function handleDecision(id: string, corpusId: string, status: "approved" | "rejected", worldIdProof: unknown) {
+    setApprovalError(null);
     const target = approvals.find((a) => a.id === id);
-    const res = await fetch(`/api/corpus/${corpusId}/approvals/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, decidedBy: address, worldIdProof }),
-    });
-    if (res.ok) {
-      setApprovals((prev) => prev.filter((a) => a.id !== id));
-      if (target) {
-        setApprovalHistory((prev) => [
-          {
-            ...target,
-            status,
-            decidedBy: address ?? null,
-            decidedAt: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
+    try {
+      const res = await fetch(`/api/corpus/${corpusId}/approvals/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, decidedBy: address, worldIdProof }),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setApprovals((prev) => prev.filter((a) => a.id !== id));
+        if (target) {
+          setApprovalHistory((prev) => [
+            {
+              ...target,
+              status,
+              decidedBy: address ?? null,
+              decidedAt: new Date().toISOString(),
+              txHash: result.txHash ?? null,
+            },
+            ...prev,
+          ]);
+        }
+      } else {
+        const data = await res.json().catch(() => null);
+        setApprovalError(data?.error ?? `Failed to ${status === "approved" ? "approve" : "reject"} (${res.status})`);
       }
+    } catch {
+      setApprovalError("Network error — please try again.");
     }
   }
 
@@ -253,6 +265,13 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                   // HISTORY ({approvalHistory.length})
                 </button>
               </div>
+
+              {approvalError && (
+                <div className="mb-3 bg-red-950 border border-red-800 text-red-400 text-xs px-4 py-2.5 flex items-center justify-between">
+                  <span>{approvalError}</span>
+                  <button onClick={() => setApprovalError(null)} className="text-red-500 hover:text-red-300 ml-4">DISMISS</button>
+                </div>
+              )}
 
               {approvalTab === "pending" && (
                 <div className="bg-surface border border-border divide-y divide-border">
@@ -342,6 +361,19 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                                 <span className="font-mono">{item.decidedBy.slice(0, 6)}...{item.decidedBy.slice(-4)}</span>
                               </>
                             )}
+                            {item.txHash && (
+                              <>
+                                <span>&middot;</span>
+                                <a
+                                  href={`https://hashscan.io/testnet/transaction/${item.txHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-accent hover:underline font-mono"
+                                >
+                                  TX {item.txHash.slice(0, 8)}...{item.txHash.slice(-6)}
+                                </a>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -358,8 +390,8 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                 {agents.length === 0 && (
                   <div className="p-6 text-muted text-sm text-center">No agents.</div>
                 )}
-                {agents.map((agent) => (
-                  <div key={agent.name} className="p-4 flex items-center justify-between hover:bg-surface-hover transition-colors">
+                {agents.map((agent, i) => (
+                  <div key={`${agent.name}-${i}`} className="p-4 flex items-center justify-between hover:bg-surface-hover transition-colors">
                     <div>
                       <p className="text-sm text-foreground">{agent.name}</p>
                       <p className="text-xs text-muted mt-0.5">last: {agent.lastActive}</p>

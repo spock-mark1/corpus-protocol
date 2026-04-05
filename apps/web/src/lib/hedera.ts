@@ -64,6 +64,49 @@ export async function transferHtsToken(
 }
 
 /**
+ * Record an approval decision on-chain as a zero-value tx with memo.
+ */
+export async function recordApprovalOnChain(
+  approvalId: string,
+  corpusId: string,
+  status: "approved" | "rejected",
+  decidedBy: string,
+): Promise<{ txHash: string } | null> {
+  const { ethers } = await import("ethers");
+
+  if (!HEDERA_OPERATOR_KEY) {
+    console.warn("[hedera] HEDERA_OPERATOR_PRIVATE_KEY not set, skipping on-chain record");
+    return null;
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(HEDERA_RPC_URL);
+    const wallet = new ethers.Wallet(HEDERA_OPERATOR_KEY, provider);
+
+    const memo = JSON.stringify({
+      type: "approval_decision",
+      approvalId,
+      corpusId,
+      status,
+      decidedBy,
+      timestamp: new Date().toISOString(),
+    });
+
+    const tx = await wallet.sendTransaction({
+      to: wallet.address,
+      value: 0n,
+      data: ethers.hexlify(ethers.toUtf8Bytes(memo)),
+    });
+
+    const receipt = await tx.wait();
+    return { txHash: receipt!.hash };
+  } catch (err) {
+    console.error("[hedera] Failed to record approval on-chain:", err);
+    return null;
+  }
+}
+
+/**
  * Convert a Hedera token ID (0.0.XXXXX) to its EVM address.
  * The EVM address for a Hedera entity is: 0x + hex(entityNum) padded to 40 chars.
  */

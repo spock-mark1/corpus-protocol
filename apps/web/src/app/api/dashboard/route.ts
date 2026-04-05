@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
           status: a.status as "approved" | "rejected",
           decidedBy: a.decidedBy,
           decidedAt: a.decidedAt?.toISOString() ?? null,
+          txHash: a.txHash ?? null,
           timestamp: a.createdAt.toISOString(),
         })),
     )

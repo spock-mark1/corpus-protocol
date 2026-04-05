@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cppCorpus, cppApprovals, cppPatrons } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { verifyWorldIdProof, type WorldIdProof } from "@/lib/world-id";
+import { recordApprovalOnChain } from "@/lib/hedera";
 
 // PATCH /api/corpus/:id/approvals/:approvalId — Approve/reject
 export async function PATCH(
@@ -66,6 +67,7 @@ export async function PATCH(
     }
 
     // Verify the caller is an active Patron (Creator or Investor) of this Corpus
+    console.log("[approval] decidedBy:", decidedBy, "corpusId:", id);
     if (decidedBy) {
       const patron = await db
         .select()
@@ -80,6 +82,7 @@ export async function PATCH(
         .limit(1)
         .then((r) => r[0] ?? null);
 
+      console.log("[approval] patron lookup result:", patron?.id ?? "NOT FOUND", "wallet:", decidedBy.toLowerCase());
       if (!patron) {
         return Response.json(
           { error: "Only active Patrons can approve or reject decisions" },
@@ -88,12 +91,20 @@ export async function PATCH(
       }
     }
 
+    const resolvedDecidedBy = decidedBy ?? worldIdResult.nullifier_hash;
+
+    // Record approval decision on Hedera
+    const onChainResult = await recordApprovalOnChain(
+      approvalId, id, status, resolvedDecidedBy,
+    );
+
     const [approval] = await db
       .update(cppApprovals)
       .set({
         status,
         decidedAt: new Date(),
-        decidedBy: decidedBy ?? worldIdResult.nullifier_hash,
+        decidedBy: resolvedDecidedBy,
+        txHash: onChainResult?.txHash ?? null,
       })
       .where(eq(cppApprovals.id, approvalId))
       .returning();

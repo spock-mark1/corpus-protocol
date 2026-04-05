@@ -59,22 +59,33 @@ export async function createAgentWallet(): Promise<{
  * Request testnet USDC from Circle faucet.
  * Best-effort — failure doesn't block wallet creation.
  */
-async function requestTestnetFunding(address: string): Promise<void> {
+export async function requestTestnetFunding(address: string): Promise<void> {
   try {
-    const res = await fetch("https://faucet.circle.com/api/drip", {
+    const apiKey = process.env.CIRCLE_API_KEY ?? "";
+    if (!apiKey) {
+      console.warn("Circle faucet: CIRCLE_API_KEY not set, skipping funding");
+      return;
+    }
+    const res = await fetch("https://api.circle.com/v1/faucet/drips", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
         address,
-        blockchain: "EVM",
-        native: false,
+        blockchain: "ARC-TESTNET",
+        native: true,
         usdc: true,
       }),
     });
     if (res.ok) {
-      console.log(`Circle faucet: funded ${address} with testnet USDC`);
+      console.log(`Circle faucet: funded ${address} with testnet USDC on ARC`);
+    } else if (res.status === 429) {
+      console.warn(`Circle faucet: rate limited for ${address} (retry-after: ${res.headers.get("retry-after")}s)`);
     } else {
-      console.warn(`Circle faucet returned ${res.status} for ${address}`);
+      const body = await res.text().catch(() => "");
+      console.warn(`Circle faucet returned ${res.status} for ${address}: ${body}`);
     }
   } catch (err) {
     console.warn("Circle faucet request failed:", err);
@@ -215,6 +226,57 @@ export async function broadcastTransferWithAuthorization(payload: {
 
   const receipt = await tx.wait();
   return { txHash: receipt.hash };
+}
+
+/**
+ * Check USDC balance for a wallet on Arc testnet.
+ * Returns balance in smallest unit (6 decimals).
+ */
+export async function getUsdcBalance(walletAddress: string): Promise<bigint> {
+  const { ethers } = await import("ethers");
+
+  const arcRpcUrl = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
+  const tokenAddress =
+    process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x3600000000000000000000000000000000000000";
+
+  const provider = new ethers.JsonRpcProvider(arcRpcUrl);
+  const usdc = new ethers.Contract(
+    tokenAddress,
+    ["function balanceOf(address) view returns (uint256)"],
+    provider,
+  );
+
+  return usdc.balanceOf(walletAddress);
+}
+
+/**
+ * Ensure a wallet has enough USDC for a payment.
+ * If balance is insufficient, retries faucet funding and waits briefly.
+ * Returns { sufficient, balance } so callers can decide what to do.
+ */
+export async function ensureFunded(
+  walletAddress: string,
+  requiredAmount: bigint,
+): Promise<{ sufficient: boolean; balance: bigint }> {
+  let balance = await getUsdcBalance(walletAddress);
+  if (balance >= requiredAmount) {
+    return { sufficient: true, balance };
+  }
+
+  // Attempt faucet funding and wait for it to land
+  console.log(`Wallet ${walletAddress} has ${balance} USDC, need ${requiredAmount}. Requesting faucet...`);
+  await requestTestnetFunding(walletAddress);
+
+  // Wait up to 15 seconds for faucet tx to land
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    balance = await getUsdcBalance(walletAddress);
+    if (balance >= requiredAmount) {
+      return { sufficient: true, balance };
+    }
+  }
+
+  return { sufficient: false, balance };
 }
 
 /**
