@@ -11,18 +11,35 @@ export default async function CorpusDetailPage({
 }) {
   const { id } = await params;
 
-  const corpus = await db.query.cppCorpus.findFirst({
-    where: eq(cppCorpus.id, id),
-    with: {
-      patrons: true,
-      activities: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 20 },
-      approvals: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 10 },
-      revenues: { orderBy: (r, { desc }) => [desc(r.createdAt)], limit: 20 },
-      commerceServices: true,
-      // Only recent jobs for the "Recent Jobs" list — stats come from DB aggregation
-      commerceJobs: { orderBy: (j, { desc: d }) => [d(j.createdAt)], limit: 10 },
-    },
-  });
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Run both DB queries in parallel
+  const [corpus, [jobStatsRow]] = await Promise.all([
+    db.query.cppCorpus.findFirst({
+      where: eq(cppCorpus.id, id),
+      with: {
+        patrons: true,
+        activities: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 20 },
+        approvals: { orderBy: (a, { desc }) => [desc(a.createdAt)], limit: 10 },
+        revenues: { orderBy: (r, { desc }) => [desc(r.createdAt)], limit: 20 },
+        commerceServices: true,
+        // Only recent jobs for the "Recent Jobs" list — stats come from DB aggregation
+        commerceJobs: { orderBy: (j, { desc: d }) => [d(j.createdAt)], limit: 10 },
+      },
+    }),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        completed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'completed')::int`,
+        failed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'failed')::int`,
+        pending: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'pending')::int`,
+        totalRevenue: sql<number>`coalesce(sum(${cppCommerceJobs.amount}::numeric) filter (where ${cppCommerceJobs.status} = 'completed'), 0)::float`,
+        jobsToday: sql<number>`count(*) filter (where ${cppCommerceJobs.createdAt} >= ${todayStart})::int`,
+      })
+      .from(cppCommerceJobs)
+      .where(eq(cppCommerceJobs.corpusId, id)),
+  ]);
 
   if (!corpus) notFound();
 
@@ -43,8 +60,6 @@ export default async function CorpusDetailPage({
     .slice(-6);
 
   // Agent activity stats (today)
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
   const todayActivities = corpus.activities.filter(
     (a) => new Date(a.createdAt) >= todayStart
   );
@@ -53,19 +68,6 @@ export default async function CorpusDetailPage({
     repliesToday: todayActivities.filter((a) => a.type === "reply").length,
     researchesToday: todayActivities.filter((a) => a.type === "research").length,
   };
-
-  // Commerce stats — aggregate from DB (not limited by relation query)
-  const [jobStatsRow] = await db
-    .select({
-      total: sql<number>`count(*)::int`,
-      completed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'completed')::int`,
-      failed: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'failed')::int`,
-      pending: sql<number>`count(*) filter (where ${cppCommerceJobs.status} = 'pending')::int`,
-      totalRevenue: sql<number>`coalesce(sum(${cppCommerceJobs.amount}::numeric) filter (where ${cppCommerceJobs.status} = 'completed'), 0)::float`,
-      jobsToday: sql<number>`count(*) filter (where ${cppCommerceJobs.createdAt} >= ${todayStart})::int`,
-    })
-    .from(cppCommerceJobs)
-    .where(eq(cppCommerceJobs.corpusId, id));
 
   const successRate = jobStatsRow.total > 0
     ? Math.round((jobStatsRow.completed / jobStatsRow.total) * 100)

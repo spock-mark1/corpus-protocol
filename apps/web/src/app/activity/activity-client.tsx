@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AgentAvatar } from "@/components/agent-avatar";
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -77,17 +77,19 @@ function StatusDot({ status }: { status: string }) {
 
 // ─── Component ───────────────────────────────────────────────────
 
-const POLL_INTERVAL = 5_000; // 5 seconds
+const PAGE_SIZE = 25;
+const POLL_INTERVAL = 5_000;
 
 export function ActivityClient({ stats: initialStats, transactions: initialTransactions, initialCursor }: Props) {
   const [filter, setFilter] = useState<Filter>("All");
   const [stats, setStats] = useState(initialStats);
   const [transactions, setTransactions] = useState(initialTransactions);
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [prevCursors, setPrevCursors] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-  // Poll stats only (don't replace paginated transactions)
+  // Poll stats only
   const refreshStats = useCallback(async () => {
     try {
       const res = await fetch("/api/activity?statsOnly=true");
@@ -102,38 +104,38 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
     return () => clearInterval(id);
   }, [refreshStats]);
 
-  // Load more pages
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
+  const fetchPage = useCallback(async (cursor: string | null) => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/activity?limit=50&cursor=${encodeURIComponent(nextCursor)}`);
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (cursor) params.set("cursor", cursor);
+      const res = await fetch(`/api/activity?${params}`);
       if (!res.ok) return;
       const data = await res.json();
-      setTransactions((prev) => {
-        const existingIds = new Set(prev.map((t) => t.id));
-        const newItems = data.transactions.filter((t: Transaction) => !existingIds.has(t.id));
-        return [...prev, ...newItems];
-      });
+      setTransactions(data.transactions);
       setNextCursor(data.nextCursor);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch { /* silent */ } finally {
-      setLoadingMore(false);
+      setLoading(false);
     }
-  }, [nextCursor, loadingMore]);
+  }, []);
 
-  // IntersectionObserver for infinite scroll
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [loadMore]);
+  const goNext = useCallback(() => {
+    if (!nextCursor || loading) return;
+    const currentFirst = transactions[0]?.timestamp ?? null;
+    setPrevCursors((prev) => [...prev, currentFirst ?? ""]);
+    setPage((p) => p + 1);
+    fetchPage(nextCursor);
+  }, [nextCursor, loading, transactions, fetchPage]);
+
+  const goPrev = useCallback(() => {
+    if (prevCursors.length === 0 || loading) return;
+    const prev = [...prevCursors];
+    const cursor = prev.pop()!;
+    setPrevCursors(prev);
+    setPage((p) => p - 1);
+    fetchPage(cursor || null);
+  }, [prevCursors, loading, fetchPage]);
 
   const filtered = useMemo(() => {
     if (filter === "All") return transactions;
@@ -237,7 +239,7 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
                     style={{ gridTemplateColumns: "2rem auto 4rem minmax(0,12rem) auto 7rem auto minmax(0,14rem) 1fr 4rem auto" }}
                   >
                     {/* 0. Row number */}
-                    <span className="text-muted/50 text-xs tabular-nums text-right">{idx + 1}</span>
+                    <span className="text-muted/50 text-xs tabular-nums text-right">{(page - 1) * PAGE_SIZE + idx + 1}</span>
                     {/* 1. Status dot */}
                     <StatusDot status={tx.status} />
                     {/* 2. Type badge */}
@@ -322,17 +324,26 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
           )}
         </div>
 
-        {/* Infinite scroll sentinel */}
-        {nextCursor && (
-          <div ref={sentinelRef} className="py-8 text-center text-muted text-sm">
-            {loadingMore ? "Loading more..." : ""}
-          </div>
-        )}
-        {!nextCursor && transactions.length > 0 && (
-          <div className="py-6 text-center text-muted/50 text-xs">
-            All {transactions.length} transactions loaded
-          </div>
-        )}
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-4 py-3">
+          <button
+            onClick={goPrev}
+            disabled={page === 1 || loading}
+            className="px-4 py-2 text-sm border border-border text-muted hover:text-foreground hover:bg-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            &larr; Prev
+          </button>
+          <span className="text-xs text-muted tabular-nums">
+            {loading ? "Loading..." : `Page ${page}`}
+          </span>
+          <button
+            onClick={goNext}
+            disabled={!nextCursor || loading}
+            className="px-4 py-2 text-sm border border-border text-muted hover:text-foreground hover:bg-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next &rarr;
+          </button>
+        </div>
       </section>
 
     </div>

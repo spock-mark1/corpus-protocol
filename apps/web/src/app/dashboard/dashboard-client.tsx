@@ -123,10 +123,53 @@ function DashboardLoader() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="mb-10">
-          <h1 className="text-accent text-lg font-bold tracking-wider mb-1">DASHBOARD</h1>
-          <p className="text-muted text-sm">loading your agents&hellip;</p>
+      <div className="max-w-7xl mx-auto px-6 py-10 animate-pulse">
+        <div className="mb-10 space-y-2">
+          <div className="h-5 w-32 bg-zinc-800 rounded" />
+          <div className="h-4 w-72 bg-zinc-800/60 rounded" />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-surface border border-border p-5 space-y-2">
+              <div className="h-3 w-24 bg-zinc-800 rounded" />
+              <div className="h-7 w-20 bg-zinc-800 rounded" />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="h-4 w-28 bg-zinc-800 rounded" />
+            <div className="bg-surface border border-border divide-y divide-border">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 flex items-center justify-between">
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 w-48 bg-zinc-800 rounded" />
+                    <div className="h-3 w-32 bg-zinc-800/50 rounded" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-8 w-20 bg-zinc-800 rounded" />
+                    <div className="h-8 w-20 bg-zinc-800 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="h-4 w-28 bg-zinc-800 rounded" />
+            <div className="bg-surface border border-border divide-y divide-border">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 flex items-center gap-3">
+                  <div className="w-5 h-5 bg-zinc-800 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-3 w-28 bg-zinc-800 rounded" />
+                    <div className="h-3 w-16 bg-zinc-800/50 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
