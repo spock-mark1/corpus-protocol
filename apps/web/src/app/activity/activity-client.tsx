@@ -89,20 +89,28 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Poll stats only
-  const refreshStats = useCallback(async () => {
+  // Poll stats + transactions (first page only)
+  const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/activity?statsOnly=true");
+      const isFirstPage = page === 1;
+      const params = new URLSearchParams(
+        isFirstPage ? { limit: String(PAGE_SIZE) } : { statsOnly: "true" }
+      );
+      const res = await fetch(`/api/activity?${params}`);
       if (!res.ok) return;
       const data = await res.json();
       setStats(data.stats);
+      if (isFirstPage) {
+        setTransactions(data.transactions);
+        setNextCursor(data.nextCursor);
+      }
     } catch { /* silent */ }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
-    const id = setInterval(refreshStats, POLL_INTERVAL);
+    const id = setInterval(refresh, POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [refreshStats]);
+  }, [refresh]);
 
   const fetchPage = useCallback(async (cursor: string | null) => {
     setLoading(true);
@@ -236,10 +244,8 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
                 >
                   <div
                     className="grid items-center gap-x-3 text-sm"
-                    style={{ gridTemplateColumns: "2rem auto 4rem minmax(0,12rem) auto 7rem auto minmax(0,14rem) 1fr 4rem auto" }}
+                    style={{ gridTemplateColumns: "auto 4rem minmax(0,12rem) auto 7rem auto minmax(0,14rem) 1fr 4rem auto" }}
                   >
-                    {/* 0. Row number */}
-                    <span className="text-muted/50 text-xs tabular-nums text-right">{(page - 1) * PAGE_SIZE + idx + 1}</span>
                     {/* 1. Status dot */}
                     <StatusDot status={tx.status} />
                     {/* 2. Type badge */}
