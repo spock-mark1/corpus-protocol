@@ -85,7 +85,7 @@ Patron status grants governance rights (Kernel voting, policy proposals) but req
 Wallet connected → Buy Pulse (free market)
                        ↓
                Holding ≥ minPatronPulse?
-                  No → "Become Patron" disabled (tooltip: "N Pulse 이상 필요")
+                  No → "Become Patron" disabled (tooltip: "Requires N or more Pulse")
                   Yes → "Become Patron" enabled
                        ↓
                Click → Patron registration (on-chain record)

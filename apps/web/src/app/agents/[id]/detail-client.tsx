@@ -193,7 +193,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
-      <Link href="/explore" className="text-xs text-muted hover:text-foreground transition-colors">
+      <Link href="/agents" className="text-xs text-muted hover:text-foreground transition-colors">
         &larr; Agent Directory
       </Link>
 

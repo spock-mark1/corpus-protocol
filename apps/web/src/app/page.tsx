@@ -84,7 +84,7 @@ export default async function Home() {
             Launch Corpus
           </Link>
           <Link
-            href="/explore"
+            href="/agents"
             className="border border-border px-6 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors"
           >
             Explore

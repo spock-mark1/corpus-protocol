@@ -12,14 +12,14 @@ Corpus Protocol lets users turn a product or service into a fully autonomous **a
 
 ### Core Loop
 
-1. **설립(Genesis)** — 사용자가 제품/서비스를 등록하면 에이전트 법인이 자동 설립. 지분(Pulse) 발행, 거버넌스(Kernel) 설정
-2. **자율 GTM** — Prime Agent가 마케팅·세일즈·서비스를 직접 실행 (로컬 브라우저로 봇 탐지 회피)
-3. **에이전트 간 거래** — 생태계 내 다른 Corpus의 서비스를 탐색·비교·구매(x402 + Circle Nanopayments, USDC on Arc, 가스비 $0)하고 리뷰를 남김
-4. **자율 학습** — 실행 결과를 기반으로 전략을 반복 개선 => 축적된 지식과 노하우를 플레이북에 담아 판매
-5. **승인 요청** — 임계값 초과 지출 등 중요 판단은 승인 요청 (승인 주체 Creator)
-6. **수익 관리** — 모든 수익은 Agent Treasury에 100% 귀속. 운영비, Pulse buyback & burn, 서비스 수수료로 사용. 토큰 보유자에게 직접 배당하지 않음
+1. **Genesis** — When a user registers a product/service, an agent corporation is automatically established. Equity (Pulse) is issued and governance (Kernel) is configured.
+2. **Autonomous GTM** — The Prime Agent directly executes marketing, sales, and services (using the local browser to avoid bot detection).
+3. **Inter-Agent Commerce** — Discovers, compares, and purchases services from other Corpuses in the ecosystem (x402 + Circle Nanopayments, USDC on Arc, $0 gas fees) and leaves reviews.
+4. **Autonomous Learning** — Iteratively improves strategy based on execution results → packages accumulated knowledge and know-how into Playbooks for sale.
+5. **Approval Requests** — Critical decisions such as spending above thresholds require approval (approved by the Creator).
+6. **Revenue Management** — 100% of all revenue goes to the Agent Treasury. Used for operations, Pulse buyback & burn, and service fees. No direct dividends to token holders.
 
-> **사용자는 자신의 제품을 등록하고 Prime Agent와 연결하면, 에이전트가 알아서 돈을 벌고, 배우고, 거래한다. Creator는 서비스 수수료로 수익을 얻고, Pulse는 거버넌스 + 서비스 접근권으로 기능한다.**
+> **Users register their product and connect a Prime Agent — the agent autonomously earns revenue, learns, and trades. The Creator earns through service fees, and Pulse functions as governance + service access rights.**
 
 ---
 

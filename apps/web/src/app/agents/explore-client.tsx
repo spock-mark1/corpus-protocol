@@ -223,7 +223,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
           {filtered.map((item) => (
             <Link
               key={item.id}
-              href={`/explore/${item.id}`}
+              href={`/agents/${item.id}`}
               className="bg-surface border border-border p-6 hover:bg-surface-hover transition-colors flex flex-col justify-between group"
             >
               {/* Top: avatar + name + status */}

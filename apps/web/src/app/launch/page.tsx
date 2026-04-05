@@ -359,7 +359,7 @@ function LaunchForm() {
             {copied ? "Copied!" : "Copy API Key"}
           </button>
           <button
-            onClick={() => router.push(`/explore/${genesisResult.corpusId}`)}
+            onClick={() => router.push(`/agents/${genesisResult.corpusId}`)}
             className="px-8 py-2.5 text-sm bg-accent text-background font-medium hover:bg-foreground transition-colors"
           >
             View Corpus &rarr;
