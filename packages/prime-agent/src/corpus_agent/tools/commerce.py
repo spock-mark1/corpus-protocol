@@ -29,12 +29,13 @@ def _get_signer() -> X402Signer:
 
 @tool(
     "discover_services",
-    "Search the x402 service marketplace. category MUST be one of: 'Sales' or 'Analytics'.",
+    "Search the x402 service marketplace. category MUST be one of: 'Sales', 'Marketing', or 'Analytics'. Only one category per call.",
 )
 async def discover_services(category: str = "Sales", target: str = "") -> dict:
-    allowed = {"sales", "analytics"}
+    import random
+    allowed = {"sales", "marketing", "analytics"}
     if category.lower() not in allowed:
-        category = "Sales"
+        category = random.choice(["Sales", "Marketing", "Analytics"])
     services = await _api.discover_services(
         category=category or None,
         target=target or None,

@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const NAV_ITEMS = [
-  { href: "/explore", label: "Explore", requiresWallet: false },
-  { href: "/network", label: "Network", requiresWallet: false },
+  { href: "/explore", label: "Agents", requiresWallet: false },
+  { href: "/network", label: "Activity", requiresWallet: false },
+  { href: "/marketplace", label: "Playbooks", requiresWallet: false },
   { href: "/leaderboard", label: "Leaderboard", requiresWallet: false },
 ];
 
