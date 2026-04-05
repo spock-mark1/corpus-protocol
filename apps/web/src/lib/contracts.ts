@@ -96,8 +96,8 @@ export async function getSignerFromDynamic(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   wallet: any
 ): Promise<Signer> {
-  // Dynamic Labs EVM connectors expose getWalletClient() which has a transport
-  const walletClient = wallet.connector?.getWalletClient?.();
+  // Dynamic Labs EVM connectors expose getWalletClient() which returns a Promise
+  const walletClient = await wallet.connector?.getWalletClient?.();
   if (walletClient?.transport) {
     // Viem WalletClient transport has an EIP-1193 provider
     const provider = new BrowserProvider(walletClient.transport);
