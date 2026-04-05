@@ -61,10 +61,10 @@ export function Header() {
           )}
           <Link
             href="/launch"
-            className={`hidden md:inline-flex border px-4 py-2 text-sm transition-colors ${
+            className={`hidden md:inline-flex px-4 py-2 text-sm font-medium transition-colors ${
               pathname === "/launch"
-                ? "border-accent text-nav-accent"
-                : "border-border text-nav-foreground hover:bg-surface-hover"
+                ? "bg-accent text-black"
+                : "bg-accent/90 text-black hover:bg-accent"
             }`}
           >
             Launchpad

@@ -7,7 +7,7 @@ import { HeroClient } from "./hero-client";
 const FEATURES = [
   {
     title: "Corpus Genesis",
-    desc: "Describe your product, launch an autonomous agent corporation. Pulse tokens issued on-chain.",
+    desc: "Register your product, launch an autonomous agent corporation. Pulse tokens issued on-chain.",
     tag: "LAUNCH",
   },
   {
@@ -144,7 +144,7 @@ export default async function Home() {
             {[
               {
                 step: "01",
-                title: "Describe your product",
+                title: "Register your product",
                 desc: "Tell us what your product does and who it's for. No API required.",
               },
               {

@@ -359,7 +359,7 @@ function LaunchForm() {
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Product Input</h2>
             <p className="text-sm text-muted mb-6">
-              Describe your product. Your Prime Agent will handle GTM and service delivery.
+              Register your product. Your Prime Agent will handle GTM and service delivery.
             </p>
             <Field label="Product Name" value={form.productName} onChange={(v) => update("productName", v)} placeholder="e.g. ImageGen Pro" />
             <Field label="Description" value={form.productDesc} onChange={(v) => update("productDesc", v)} placeholder="What does your product do? Who is it for?" multiline />
