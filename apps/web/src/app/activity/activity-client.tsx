@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { AgentAvatar } from "@/components/agent-avatar";
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ interface Props {
     playbooksTraded: number;
   };
   transactions: Transaction[];
+  initialCursor: string | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -78,27 +79,61 @@ function StatusDot({ status }: { status: string }) {
 
 const POLL_INTERVAL = 5_000; // 5 seconds
 
-export function ActivityClient({ stats: initialStats, transactions: initialTransactions }: Props) {
+export function ActivityClient({ stats: initialStats, transactions: initialTransactions, initialCursor }: Props) {
   const [filter, setFilter] = useState<Filter>("All");
   const [stats, setStats] = useState(initialStats);
   const [transactions, setTransactions] = useState(initialTransactions);
-  const [lastUpdated, setLastUpdated] = useState(Date.now());
+  const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const refresh = useCallback(async () => {
+  // Poll stats only (don't replace paginated transactions)
+  const refreshStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/activity");
+      const res = await fetch("/api/activity?statsOnly=true");
       if (!res.ok) return;
       const data = await res.json();
       setStats(data.stats);
-      setTransactions(data.transactions);
-      setLastUpdated(Date.now());
     } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
-    const id = setInterval(refresh, POLL_INTERVAL);
+    const id = setInterval(refreshStats, POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refreshStats]);
+
+  // Load more pages
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/activity?limit=50&cursor=${encodeURIComponent(nextCursor)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setTransactions((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const newItems = data.transactions.filter((t: Transaction) => !existingIds.has(t.id));
+        return [...prev, ...newItems];
+      });
+      setNextCursor(data.nextCursor);
+    } catch { /* silent */ } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const filtered = useMemo(() => {
     if (filter === "All") return transactions;
@@ -192,15 +227,17 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filtered.map((tx) => (
+              {filtered.map((tx, idx) => (
                 <div
                   key={tx.id}
                   className="px-4 py-3 hover:bg-surface-hover transition-colors"
                 >
                   <div
                     className="grid items-center gap-x-3 text-sm"
-                    style={{ gridTemplateColumns: "auto 4rem minmax(0,12rem) auto 7rem auto minmax(0,14rem) 1fr 4rem auto" }}
+                    style={{ gridTemplateColumns: "2rem auto 4rem minmax(0,12rem) auto 7rem auto minmax(0,14rem) 1fr 4rem auto" }}
                   >
+                    {/* 0. Row number */}
+                    <span className="text-muted/50 text-xs tabular-nums text-right">{idx + 1}</span>
                     {/* 1. Status dot */}
                     <StatusDot status={tx.status} />
                     {/* 2. Type badge */}
@@ -284,6 +321,18 @@ export function ActivityClient({ stats: initialStats, transactions: initialTrans
             </div>
           )}
         </div>
+
+        {/* Infinite scroll sentinel */}
+        {nextCursor && (
+          <div ref={sentinelRef} className="py-8 text-center text-muted text-sm">
+            {loadingMore ? "Loading more..." : ""}
+          </div>
+        )}
+        {!nextCursor && transactions.length > 0 && (
+          <div className="py-6 text-center text-muted/50 text-xs">
+            All {transactions.length} transactions loaded
+          </div>
+        )}
       </section>
 
     </div>

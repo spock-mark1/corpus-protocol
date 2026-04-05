@@ -80,7 +80,10 @@ export default function PlaybooksPage() {
     if (channel !== "All") params.set("channel", channel);
     if (search) params.set("search", search);
     const res = await fetch(`/api/playbooks?${params}`);
-    if (res.ok) setPlaybooks(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      setPlaybooks(json.data ?? []);
+    }
     setLoading(false);
   }, [category, channel, search]);
 

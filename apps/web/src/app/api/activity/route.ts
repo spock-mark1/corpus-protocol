@@ -11,20 +11,72 @@ import { alias } from "drizzle-orm/pg-core";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10) || 50, 1), 100);
+  const cursor = searchParams.get("cursor"); // ISO timestamp|id
+  const statsOnly = searchParams.get("statsOnly") === "true";
+
   // Alias for buyer corpus lookup in jobs query
   const buyerCorpus = alias(cppCorpus, "buyerCorpus");
 
   // Alias for buyer corpus lookup in playbook purchases
   const pbBuyerCorpus = alias(cppCorpus, "pbBuyerCorpus");
 
-  const [jobs, playbookTrades, stats] = await Promise.all([
-    // Jobs with seller and buyer names joined directly
+  // Parse cursor (timestamp only, shared across two tables)
+  let cursorDate: Date | null = null;
+  if (cursor) {
+    const dateStr = cursor.split("|")[0];
+    if (dateStr) cursorDate = new Date(dateStr);
+  }
+
+  // Build cursor conditions — strictly less than cursor timestamp
+  const jobCursorCond = cursorDate
+    ? [sql`${cppCommerceJobs.createdAt} < ${cursorDate}`]
+    : [];
+  const pbCursorCond = cursorDate
+    ? [sql`${cppPlaybookPurchases.createdAt} < ${cursorDate}`]
+    : [];
+
+  // Always fetch stats
+  const [agentStats, registeredServiceCount] = await Promise.all([
+    db
+      .select({
+        totalAgents: count(cppCorpus.id),
+        activeAgents: sql<number>`count(*) filter (where ${cppCorpus.agentOnline} = true)::int`,
+      })
+      .from(cppCorpus)
+      .then((r) => r[0]),
+    db
+      .select({ count: count(cppCommerceServices.id) })
+      .from(cppCommerceServices)
+      .then((r) => r[0]?.count ?? 0),
+  ]);
+
+  // Total counts for stats (not affected by cursor)
+  const [jobTotal, pbTotal] = await Promise.all([
+    db.select({ count: count(cppCommerceJobs.id), vol: sql<number>`coalesce(sum(${cppCommerceJobs.amount}::numeric), 0)::float` }).from(cppCommerceJobs).then((r) => r[0]),
+    db.select({ count: count(cppPlaybookPurchases.id), vol: sql<number>`coalesce(sum(${cppPlaybooks.price}::numeric), 0)::float` }).from(cppPlaybookPurchases).innerJoin(cppPlaybooks, eq(cppPlaybookPurchases.playbookId, cppPlaybooks.id)).then((r) => r[0]),
+  ]);
+
+  const statsPayload = {
+    totalTransactions: (jobTotal?.count ?? 0) + (pbTotal?.count ?? 0),
+    totalVolume: (jobTotal?.vol ?? 0) + (pbTotal?.vol ?? 0),
+    activeAgents: agentStats?.activeAgents ?? 0,
+    totalAgents: agentStats?.totalAgents ?? 0,
+    registeredServices: registeredServiceCount,
+    playbooksTraded: pbTotal?.count ?? 0,
+  };
+
+  if (statsOnly) {
+    return Response.json({ stats: statsPayload });
+  }
+
+  // Fetch transactions with cursor filtering
+  const [jobs, playbookTrades] = await Promise.all([
     db
       .select({
         id: cppCommerceJobs.id,
-        sellerCorpusId: cppCommerceJobs.corpusId,
-        buyerCorpusId: cppCommerceJobs.requesterCorpusId,
         serviceName: cppCommerceJobs.serviceName,
         amount: cppCommerceJobs.amount,
         status: cppCommerceJobs.status,
@@ -38,10 +90,10 @@ export async function GET() {
       .from(cppCommerceJobs)
       .leftJoin(cppCorpus, eq(cppCommerceJobs.corpusId, cppCorpus.id))
       .leftJoin(buyerCorpus, eq(cppCommerceJobs.requesterCorpusId, buyerCorpus.id))
+      .where(jobCursorCond.length ? jobCursorCond[0] : undefined)
       .orderBy(desc(cppCommerceJobs.createdAt))
-      .limit(100),
+      .limit(limit + 1),
 
-    // Playbook purchases with seller corpus name and buyer corpus lookup joined
     db
       .select({
         id: cppPlaybookPurchases.id,
@@ -51,7 +103,6 @@ export async function GET() {
         playbookTitle: cppPlaybooks.title,
         playbookPrice: cppPlaybooks.price,
         playbookCurrency: cppPlaybooks.currency,
-        sellerCorpusId: cppPlaybooks.corpusId,
         sellerName: cppCorpus.name,
         sellerAgent: cppCorpus.agentName,
         buyerName: pbBuyerCorpus.name,
@@ -64,23 +115,10 @@ export async function GET() {
         pbBuyerCorpus,
         sql`${pbBuyerCorpus.id} = ${cppPlaybookPurchases.buyerAddress} OR ${pbBuyerCorpus.agentName} = ${cppPlaybookPurchases.buyerAddress}`,
       )
+      .where(pbCursorCond.length ? pbCursorCond[0] : undefined)
       .orderBy(desc(cppPlaybookPurchases.createdAt))
-      .limit(100),
-
-    // Aggregate stats with COUNT queries instead of loading all rows
-    db
-      .select({
-        totalAgents: count(cppCorpus.id),
-        activeAgents: sql<number>`count(*) filter (where ${cppCorpus.agentOnline} = true)::int`,
-      })
-      .from(cppCorpus)
-      .then((r) => r[0]),
+      .limit(limit + 1),
   ]);
-
-  const registeredServiceCount = await db
-    .select({ count: count(cppCommerceServices.id) })
-    .from(cppCommerceServices)
-    .then((r) => r[0]?.count ?? 0);
 
   type Transaction = {
     id: string;
@@ -137,18 +175,18 @@ export async function GET() {
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 
-  const totalServiceVolume = jobs.reduce((s, j) => s + Number(j.amount), 0);
-  const totalPlaybookVolume = playbookTrades.reduce((s, p) => s + Number(p.playbookPrice), 0);
+  // Take limit+1 to determine if there's more
+  const hasMore = transactions.length > limit;
+  const page = hasMore ? transactions.slice(0, limit) : transactions;
+
+  const lastItem = page[page.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? lastItem.timestamp
+    : null;
 
   return Response.json({
-    stats: {
-      totalTransactions: jobs.length + playbookTrades.length,
-      totalVolume: totalServiceVolume + totalPlaybookVolume,
-      activeAgents: stats?.activeAgents ?? 0,
-      totalAgents: stats?.totalAgents ?? 0,
-      registeredServices: registeredServiceCount,
-      playbooksTraded: playbookTrades.length,
-    },
-    transactions,
+    stats: statsPayload,
+    transactions: page,
+    nextCursor,
   });
 }
