@@ -24,8 +24,10 @@ export function Header() {
     <header className="border-b border-border px-6 py-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-nav-accent font-bold tracking-wider text-sm">
-            CORPUS
+          <Link href="/" className="text-nav-accent tracking-wider text-lg flex items-baseline">
+            <span className="font-[family-name:var(--font-playfair)] font-normal">CO</span>
+            <span className="font-[family-name:var(--font-pinyon)] text-[2.8em] leading-none -mx-[0.05em]">r</span>
+            <span className="font-[family-name:var(--font-playfair)] font-normal">PUS</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             {NAV_ITEMS.map((item) => (

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
+import { Geist_Mono, Playfair_Display, Pinyon_Script } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
 import { Providers } from "@/components/providers";
@@ -7,6 +7,18 @@ import { Providers } from "@/components/providers";
 const mono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+});
+
+const pinyon = Pinyon_Script({
+  variable: "--font-pinyon",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${mono.variable} h-full antialiased`}>
+    <html lang="en" className={`${mono.variable} ${playfair.variable} ${pinyon.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground font-mono">
         <Providers>
           <Header />
