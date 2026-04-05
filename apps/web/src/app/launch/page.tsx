@@ -143,13 +143,14 @@ function LaunchForm() {
 
       const creatorAddr = form.creatorWallet || address;
       // All revenue → Agent Treasury (no external distribution)
+      // Contract requires unique addresses — use dummy placeholders for unused roles
       const patron = {
         creatorShare: 0,
         investorShare: 0,
         treasuryShare: 10000, // 100% in basis points
         creatorAddr,
-        investorAddr: creatorAddr, // placeholder — not used for distribution
-        treasuryAddr: creatorAddr, // agent treasury = creator-controlled
+        investorAddr: "0x0000000000000000000000000000000000000001", // placeholder — not used
+        treasuryAddr: "0x0000000000000000000000000000000000000002", // placeholder — not used
       };
       const kernel = {
         approvalThreshold: BigInt(Math.round(Number(form.approvalThreshold) * 100)), // USD → cents
@@ -225,6 +226,7 @@ function LaunchForm() {
             onChainId,
             agentName: form.agentName,
             hederaTokenId: pulseTokenAddr,
+            tokenSymbol: form.tokenSymbol,
             ...(form.serviceName && form.servicePrice
               ? {
                   serviceName: form.serviceName,
