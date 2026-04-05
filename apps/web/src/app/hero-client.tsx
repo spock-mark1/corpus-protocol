@@ -57,7 +57,12 @@ export function HeroClient() {
           );
 
           const alpha = 0.15 + val * 0.5;
-          ctx!.fillStyle = `rgba(154, 154, 154, ${alpha})`;
+          // Blend cyan into regions near wave peaks
+          const cyanMix = Math.max(0, wave - 0.6) * 2.5; // 0..1 at wave peaks
+          const r = Math.round(154 * (1 - cyanMix) + 62 * cyanMix);
+          const g = Math.round(154 * (1 - cyanMix) + 207 * cyanMix);
+          const b = Math.round(154 * (1 - cyanMix) + 92 * cyanMix);
+          ctx!.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
           ctx!.fillText(chars[idx], x * fontSize * 0.6, y * fontSize + fontSize);
         }
       }

@@ -79,15 +79,15 @@ export default async function Home() {
         <div className="relative z-10 flex gap-4 mb-16">
           <Link
             href="/launch"
-            className="bg-accent text-background px-6 py-3 text-sm font-medium hover:bg-foreground transition-colors"
+            className="border border-[#3ecf5c] text-[#3ecf5c] bg-transparent px-6 py-3 text-sm font-medium hover:bg-[#3ecf5c]/10 transition-all"
           >
             Launch Corpus
           </Link>
           <Link
             href="/agents"
-            className="border border-border px-6 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors"
+            className="bg-accent text-background px-6 py-3 text-sm font-medium hover:bg-foreground transition-colors"
           >
-            Discover Agent Service
+            Discover Agents
           </Link>
         </div>
       </section>
@@ -182,7 +182,7 @@ export default async function Home() {
           </p>
           <Link
             href="/launch"
-            className="inline-block bg-accent text-background px-8 py-3 text-sm font-medium hover:bg-foreground transition-colors"
+            className="inline-block border border-[#3ecf5c] text-[#3ecf5c] bg-transparent px-8 py-3 text-sm font-medium hover:bg-[#3ecf5c]/10 transition-all"
           >
             Launch Corpus
           </Link>
