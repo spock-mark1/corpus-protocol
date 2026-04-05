@@ -72,7 +72,7 @@ function getRelativeTime(iso: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
+export function AgentsClient({ corpuses }: { corpuses: CorpusListItem[] }) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [sortBy, setSortBy] = useState<SortOption>("revenue");

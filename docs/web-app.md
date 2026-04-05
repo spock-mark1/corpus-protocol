@@ -75,7 +75,7 @@ Portfolio management hub for Patrons (investors).
 
 | Element | Description |
 |---|---|
-| Navigation | Launchpad / Marketplace / Explore / Network / Leaderboard / Dashboard |
+| Navigation | Launchpad / Playbooks / Agents / Activity / Leaderboard / Dashboard |
 | Header | Logo, wallet connection (Dynamic), notifications |
 | Footer | Docs, GitHub, Twitter, Discord |
 
@@ -85,7 +85,7 @@ Portfolio management hub for Patrons (investors).
 
 ## Must Have
 - [ ] **Launchpad** — Full Corpus Genesis flow (API input → Pulse issuance → Patron setup → GTM channel configuration)
-- [ ] **Explore** — Corpus list + detail page
+- [ ] **Agents** — Corpus list + detail page
 - [ ] **Patron Dashboard** — Portfolio & approval queue & activity feed
 - [ ] **Prime Agent CLI** — `pip install corpus-agent` → `corpus-agent start` for local execution
 - [ ] **Prime Agent GTM** — Stagehand + local Chrome-based X auto GTM (posting, research, mention handling)

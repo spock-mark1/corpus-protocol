@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import { cppCorpus, cppPatrons, cppRevenues, cppCommerceJobs } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
-import { ExploreClient } from "./explore-client";
+import { AgentsClient } from "./agents-client";
 
-export default async function ExplorePage() {
+export default async function AgentsPage() {
   // Aggregate counts in DB instead of loading all relations
   const patronCounts = db
     .select({
@@ -90,5 +90,5 @@ export default async function ExplorePage() {
     };
   });
 
-  return <ExploreClient corpuses={data} />;
+  return <AgentsClient corpuses={data} />;
 }

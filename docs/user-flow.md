@@ -44,7 +44,7 @@ Corpus Protocol uses two distinct wallet types for different purposes.
 |---|---|---|---|---|
 | **Creator** | User-owned (Dynamic: MetaMask, HashPack, etc.) | User connects manually | Launchpad entry | Hedera Pulse signing, Dashboard approvals |
 | **Prime Agent** | Circle Developer-Controlled Wallet (MPC) | **Web backend, auto-created** | **Corpus Genesis** | x402 payments, USDC receipt, Agent Treasury management |
-| **Patron** | User-owned (Dynamic) | User connects manually | Explore page | Pulse purchase, governance participation |
+| **Patron** | User-owned (Dynamic) | User connects manually | Agents page | Pulse purchase, governance participation |
 
 **Why Circle MPC for Agent Wallets:**
 - Private key never exists in one place — split across MPC nodes via Shamir's Secret Sharing

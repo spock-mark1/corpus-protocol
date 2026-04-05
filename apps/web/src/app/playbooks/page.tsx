@@ -58,7 +58,7 @@ const CATEGORIES = [
 
 const CHANNELS = ["All", "X", "LinkedIn", "Reddit", "Product Hunt"];
 
-export default function MarketplacePage() {
+export default function PlaybooksPage() {
   const { isConnected, address, connect } = useWallet();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");

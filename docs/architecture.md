@@ -11,7 +11,7 @@ The server (Vercel) handles only UI/API/relay, while the Prime Agent runs on the
 │  Corpus Web (Vercel)                                  │
 │  ─────────────────                                    │
 │  Next.js 16 · React 19 · Tailwind CSS 4               │
-│  Dashboard · Launchpad · Explore · Marketplace · Network│
+│  Dashboard · Launchpad · Agents · Playbooks · Activity  │
 │  REST API · Commerce Storefront (x402)                 │
 │  Supabase (PostgreSQL)                                │
 └──────────────────────┬────────────────────────────────┘

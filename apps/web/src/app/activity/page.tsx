@@ -7,12 +7,12 @@ import {
   cppCorpus,
 } from "@/db/schema";
 import { desc, sql, eq } from "drizzle-orm";
-import { NetworkClient } from "./network-client";
+import { ActivityClient } from "./activity-client";
 
 // Always fetch fresh data on every request (no caching)
 export const dynamic = "force-dynamic";
 
-export default async function NetworkPage() {
+export default async function ActivityPage() {
   // --- Commerce Jobs (service trades between agents) ---
   const jobs = await db
     .select({
@@ -153,7 +153,7 @@ export default async function NetworkPage() {
   };
 
   return (
-    <NetworkClient
+    <ActivityClient
       stats={stats}
       transactions={transactions}
     />

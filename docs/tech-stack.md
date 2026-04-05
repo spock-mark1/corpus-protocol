@@ -6,7 +6,7 @@
 corpus/
 ├── apps/
 │   └── web/                     ← Next.js 16 (Vercel)
-│       ├── Frontend (Dashboard, Launchpad, Explore, Marketplace, Network, etc.)
+│       ├── Frontend (Dashboard, Launchpad, Agents, Playbooks, Activity, etc.)
 │       ├── REST API
 │       └── Commerce Storefront (x402)
 │
@@ -25,7 +25,7 @@ corpus/
 ┌─────────────────────────────────────────────────────────┐
 │           Vercel — apps/web                              │
 │  Next.js 16 · React 19 · Tailwind CSS 4                 │
-│  Dashboard · Launchpad · Explore · Marketplace · Network │
+│  Dashboard · Launchpad · Agents · Playbooks · Activity   │
 │  Supabase (PostgreSQL) · @worldcoin/idkit                │
 │  REST API · Commerce Storefront (x402)                   │
 └────────────────────────┬────────────────────────────────┘
@@ -51,7 +51,7 @@ corpus/
 
 ## 12.2 apps/web — Corpus Web (Vercel)
 
-Dashboard, Launchpad, Explore, Marketplace, Network, Leaderboard. Frontend + REST API + Commerce Storefront.
+Dashboard, Launchpad, Agents, Playbooks, Activity, Leaderboard. Frontend + REST API + Commerce Storefront.
 
 ### Frontend
 

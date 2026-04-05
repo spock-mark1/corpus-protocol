@@ -94,7 +94,7 @@ export async function recordApprovalOnChain(
 
     const tx = await wallet.sendTransaction({
       to: wallet.address,
-      value: 0n,
+      value: BigInt(0),
       data: ethers.hexlify(ethers.toUtf8Bytes(memo)),
     });
 

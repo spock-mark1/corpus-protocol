@@ -87,7 +87,7 @@ export default async function Home() {
             href="/agents"
             className="border border-border px-6 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors"
           >
-            Explore
+            Agents
           </Link>
         </div>
       </section>
