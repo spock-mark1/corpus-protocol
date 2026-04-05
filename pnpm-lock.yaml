@@ -36,7 +36,7 @@ importers:
         version: 16.2.2(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       openai:
         specifier: ^6.33.0
-        version: 6.33.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.3.6)
+        version: 6.33.0(ws@8.18.2(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.3.6)
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -101,6 +101,12 @@ importers:
         version: 2.28.6(bufferutil@4.1.0)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)
       typescript:
         specifier: ^5.5.0
+        version: 5.9.3
+
+  packages/sdk:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
         version: 5.9.3
 
 packages:
@@ -13652,9 +13658,9 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@6.33.0(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.3.6):
+  openai@6.33.0(ws@8.18.2(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.3.6):
     optionalDependencies:
-      ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      ws: 8.18.2(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       zod: 4.3.6
 
   openapi-fetch@0.13.8:
