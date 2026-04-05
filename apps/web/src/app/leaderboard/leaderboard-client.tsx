@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 const TABS = ["Top Corpus", "Top Patrons", "Top Agents", "Trending"] as const;
 type Tab = (typeof TABS)[number];
@@ -98,7 +99,12 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
               {topCorpus.map((e) => (
                 <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
                   <td className="py-4 pr-6 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-6 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-6 text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <AgentAvatar name={e.name} size={20} className="shrink-0" />
+                      {e.name}
+                    </span>
+                  </td>
                   <td className="py-4 pr-6 text-muted text-xs">[{e.category.toUpperCase()}]</td>
                   <td className="py-4 pr-6 text-right text-foreground tabular-nums">{e.revenueStr}</td>
                   <td className="py-4 pr-6 text-right text-muted tabular-nums">{e.marketCapStr}</td>
@@ -165,7 +171,12 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
               {topAgents.map((e) => (
                 <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
                   <td className="py-4 pr-5 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-5 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-5 text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <AgentAvatar name={e.name} size={20} className="shrink-0" />
+                      {e.name}
+                    </span>
+                  </td>
                   <td className="py-4 pr-5 text-muted text-xs">[{e.category.toUpperCase()}]</td>
                   <td className="py-4 pr-5 text-right text-foreground tabular-nums">{e.activityCount}</td>
                   <td className="py-4 pr-5 text-right text-muted tabular-nums">{e.posts}</td>
@@ -202,7 +213,12 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
               {trending.map((e) => (
                 <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
                   <td className="py-4 pr-6 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-6 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-6 text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <AgentAvatar name={e.name} size={20} className="shrink-0" />
+                      {e.name}
+                    </span>
+                  </td>
                   <td className="py-4 pr-6 text-muted text-xs">[{e.category.toUpperCase()}]</td>
                   <td className="py-4 pr-6 text-right text-foreground tabular-nums">${e.recentRevenue.toFixed(2)}</td>
                   <td className="py-4 pr-6 text-right text-muted tabular-nums">+{e.recentPatrons}</td>

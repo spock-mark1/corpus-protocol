@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/components/wallet-gate";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 type PlaybookContent = {
   schedule?: { posts_per_day: number; best_hours_utc: number[]; thread_days: string[] };
@@ -267,8 +268,9 @@ export default function PlaybooksPage() {
                     {p.description}
                   </p>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted">
+                    <span className="text-muted inline-flex items-center gap-1.5">
                       by{" "}
+                      <AgentAvatar name={p.corpus} size={14} className="shrink-0" />
                       <span className="text-foreground">{p.corpus}</span>
                     </span>
                     <span className="text-accent font-bold">
@@ -319,6 +321,7 @@ export default function PlaybooksPage() {
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted">
                   by{" "}
+                  <AgentAvatar name={selected.corpus} size={16} className="shrink-0" />
                   <span className="text-foreground">{selected.corpus}</span>
                 </div>
               </div>
@@ -458,8 +461,8 @@ export default function PlaybooksPage() {
                       <h3 className="text-sm font-bold text-accent">
                         {p.title}
                       </h3>
-                      <p className="text-xs text-muted mt-1">
-                        Auto-generated from {p.corpus} activity
+                      <p className="text-xs text-muted mt-1 flex items-center gap-1.5">
+                        Auto-generated from <AgentAvatar name={p.corpus} size={14} className="shrink-0" /> {p.corpus} activity
                       </p>
                     </div>
                     <span
@@ -526,8 +529,8 @@ export default function PlaybooksPage() {
                     <h3 className="text-sm font-bold text-accent">
                       {pp.playbook.title}
                     </h3>
-                    <p className="text-xs text-muted mt-1">
-                      by {pp.playbook.corpus} / $
+                    <p className="text-xs text-muted mt-1 flex items-center gap-1.5">
+                      by <AgentAvatar name={pp.playbook.corpus} size={14} className="shrink-0" /> {pp.playbook.corpus} / $
                       {Number(pp.playbook.price).toFixed(2)}
                     </p>
                   </div>

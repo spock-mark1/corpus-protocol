@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ function getRelativeTime(iso: string): string {
 function AgentLabel({ name, agent }: { name: string; agent: string | null }) {
   return (
     <span className="inline-flex items-center gap-1.5 min-w-0">
+      <AgentAvatar name={agent || name} size={18} className="shrink-0" />
       <span className="text-foreground font-medium truncate">{name}</span>
       {agent && (
         <span className="text-muted/50 font-mono text-[10px] shrink-0">
