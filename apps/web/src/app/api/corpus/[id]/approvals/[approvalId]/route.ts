@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppApprovals, cppPatrons } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { verifyWorldIdProof, type WorldIdProof } from "@/lib/world-id";
 
 // PATCH /api/corpus/:id/approvals/:approvalId — Approve/reject
@@ -73,7 +73,7 @@ export async function PATCH(
         .where(
           and(
             eq(cppPatrons.corpusId, id),
-            eq(cppPatrons.walletAddress, decidedBy),
+            eq(sql`lower(${cppPatrons.walletAddress})`, decidedBy.toLowerCase()),
             eq(cppPatrons.status, "active")
           )
         )

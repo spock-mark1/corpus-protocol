@@ -21,6 +21,19 @@ interface DashboardData {
     amount: string | null;
     timestamp: string;
   }[];
+  approvalHistory: {
+    id: string;
+    corpusId: string;
+    corpusName: string;
+    type: string;
+    title: string;
+    description: string | null;
+    amount: string | null;
+    status: "approved" | "rejected";
+    decidedBy: string | null;
+    decidedAt: string | null;
+    timestamp: string;
+  }[];
   activities: {
     id: string;
     corpusName: string;
@@ -158,11 +171,14 @@ function ApiKeyCell({ masked, raw }: { corpusId: string; masked: string | null; 
   );
 }
 
-function DashboardContent({ stats, approvals: initialApprovals, activities, agents, revenueStreams, corpusManagement, onRefresh }: DashboardData & { onRefresh: () => void }) {
+function DashboardContent({ stats, approvals: initialApprovals, approvalHistory: initialHistory, activities, agents, revenueStreams, corpusManagement, onRefresh }: DashboardData & { onRefresh: () => void }) {
   const [approvals, setApprovals] = useState(initialApprovals);
+  const [approvalHistory, setApprovalHistory] = useState(initialHistory);
+  const [approvalTab, setApprovalTab] = useState<"pending" | "history">("pending");
   const { address } = useWallet();
 
   async function handleDecision(id: string, corpusId: string, status: "approved" | "rejected", worldIdProof: unknown) {
+    const target = approvals.find((a) => a.id === id);
     const res = await fetch(`/api/corpus/${corpusId}/approvals/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -170,6 +186,17 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
     });
     if (res.ok) {
       setApprovals((prev) => prev.filter((a) => a.id !== id));
+      if (target) {
+        setApprovalHistory((prev) => [
+          {
+            ...target,
+            status,
+            decidedBy: address ?? null,
+            decidedAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
     }
   }
 
@@ -212,61 +239,116 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
             {/* Approval Queue */}
             <section className="lg:col-span-2">
-              <h2 className="text-sm text-muted mb-4 tracking-wide">// APPROVAL QUEUE</h2>
-              <div className="bg-surface border border-border divide-y divide-border">
-                {approvals.length === 0 && (
-                  <div className="p-6 text-muted text-sm text-center">No pending approvals.</div>
-                )}
-                {approvals.map((item) => (
-                  <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <TypeBadge type={item.type} />
-                          <span className="text-xs text-muted">{item.corpusName}</span>
-                          {item.amount && <span className="text-xs text-accent">{item.amount}</span>}
+              <div className="flex items-center gap-4 mb-4">
+                <button
+                  onClick={() => setApprovalTab("pending")}
+                  className={`text-sm tracking-wide transition-colors ${approvalTab === "pending" ? "text-accent" : "text-muted hover:text-foreground"}`}
+                >
+                  // PENDING ({approvals.length})
+                </button>
+                <button
+                  onClick={() => setApprovalTab("history")}
+                  className={`text-sm tracking-wide transition-colors ${approvalTab === "history" ? "text-accent" : "text-muted hover:text-foreground"}`}
+                >
+                  // HISTORY ({approvalHistory.length})
+                </button>
+              </div>
+
+              {approvalTab === "pending" && (
+                <div className="bg-surface border border-border divide-y divide-border">
+                  {approvals.length === 0 && (
+                    <div className="p-6 text-muted text-sm text-center">No pending approvals.</div>
+                  )}
+                  {approvals.map((item) => (
+                    <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <TypeBadge type={item.type} />
+                            <span className="text-xs text-muted">{item.corpusName}</span>
+                            {item.amount && <span className="text-xs text-accent">{item.amount}</span>}
+                          </div>
+                          <p className="text-sm text-foreground truncate">{item.title}</p>
+                          {item.description && (
+                            <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                          )}
                         </div>
-                        <p className="text-sm text-foreground truncate">{item.title}</p>
-                        {item.description && (
-                          <p className="text-xs text-muted mt-0.5">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <WorldIdVerify
-                          action={WORLD_ACTIONS.approve}
-                          signal={address ?? undefined}
-                          onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
-                        >
-                          {({ verify, loading: verifying }) => (
-                            <button
-                              onClick={verify}
-                              disabled={verifying}
-                              className="border border-green-800 text-green-500 px-3 py-1.5 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
-                            >
-                              {verifying ? "..." : "APPROVE"}
-                            </button>
-                          )}
-                        </WorldIdVerify>
-                        <WorldIdVerify
-                          action={WORLD_ACTIONS.approve}
-                          signal={address ?? undefined}
-                          onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
-                        >
-                          {({ verify, loading: verifying }) => (
-                            <button
-                              onClick={verify}
-                              disabled={verifying}
-                              className="border border-red-900 text-red-500 px-3 py-1.5 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
-                            >
-                              {verifying ? "..." : "REJECT"}
-                            </button>
-                          )}
-                        </WorldIdVerify>
+                        <div className="flex gap-2 shrink-0">
+                          <WorldIdVerify
+                            action={WORLD_ACTIONS.approve}
+                            signal={address ?? undefined}
+                            onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
+                          >
+                            {({ verify, loading: verifying }) => (
+                              <button
+                                onClick={verify}
+                                disabled={verifying}
+                                className="border border-green-800 text-green-500 px-3 py-1.5 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
+                              >
+                                {verifying ? "..." : "APPROVE"}
+                              </button>
+                            )}
+                          </WorldIdVerify>
+                          <WorldIdVerify
+                            action={WORLD_ACTIONS.approve}
+                            signal={address ?? undefined}
+                            onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
+                          >
+                            {({ verify, loading: verifying }) => (
+                              <button
+                                onClick={verify}
+                                disabled={verifying}
+                                className="border border-red-900 text-red-500 px-3 py-1.5 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
+                              >
+                                {verifying ? "..." : "REJECT"}
+                              </button>
+                            )}
+                          </WorldIdVerify>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {approvalTab === "history" && (
+                <div className="bg-surface border border-border divide-y divide-border">
+                  {approvalHistory.length === 0 && (
+                    <div className="p-6 text-muted text-sm text-center">No approval history.</div>
+                  )}
+                  {approvalHistory.map((item) => (
+                    <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <TypeBadge type={item.type} />
+                            <span className="text-xs text-muted">{item.corpusName}</span>
+                            {item.amount && <span className="text-xs text-accent">{item.amount}</span>}
+                            <span className={`text-xs font-bold ${item.status === "approved" ? "text-green-500" : "text-red-500"}`}>
+                              [{item.status.toUpperCase()}]
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground truncate">{item.title}</p>
+                          {item.description && (
+                            <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 text-xs text-muted">
+                            {item.decidedAt && (
+                              <span>{new Date(item.decidedAt).toLocaleString()}</span>
+                            )}
+                            {item.decidedBy && (
+                              <>
+                                <span>&middot;</span>
+                                <span className="font-mono">{item.decidedBy.slice(0, 6)}...{item.decidedBy.slice(-4)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Agent Status */}

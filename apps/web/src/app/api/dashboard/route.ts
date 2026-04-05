@@ -65,6 +65,27 @@ export async function GET(req: NextRequest) {
       })),
   );
 
+  const approvalHistory = corpuses
+    .flatMap((c) =>
+      c.approvals
+        .filter((a) => a.status === "approved" || a.status === "rejected")
+        .map((a) => ({
+          id: a.id,
+          corpusId: c.id,
+          corpusName: c.name,
+          type: a.type,
+          title: a.title,
+          description: a.description,
+          amount: a.amount ? `$${Number(a.amount)}` : null,
+          status: a.status as "approved" | "rejected",
+          decidedBy: a.decidedBy,
+          decidedAt: a.decidedAt?.toISOString() ?? null,
+          timestamp: a.createdAt.toISOString(),
+        })),
+    )
+    .sort((a, b) => new Date(b.decidedAt ?? b.timestamp).getTime() - new Date(a.decidedAt ?? a.timestamp).getTime())
+    .slice(0, 50);
+
   const allActivities = corpuses
     .flatMap((c) =>
       c.activities.map((a) => ({
@@ -133,6 +154,7 @@ export async function GET(req: NextRequest) {
       pendingCount: pendingApprovals.length,
     },
     approvals: pendingApprovals,
+    approvalHistory,
     activities: allActivities,
     agents,
     revenueStreams,
