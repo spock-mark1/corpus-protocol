@@ -1,10 +1,13 @@
 import { BrowserProvider, Contract, type Signer } from "ethers";
 
 // ── Contract Addresses (set after deployment) ────────────────────
-const REGISTRY_ADDRESS =
-  process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? "";
-const NAME_SERVICE_ADDRESS =
-  process.env.NEXT_PUBLIC_NAME_SERVICE_ADDRESS ?? "";
+const REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? "";
+const NAME_SERVICE_ADDRESS = process.env.NEXT_PUBLIC_NAME_SERVICE_ADDRESS ?? "";
+
+function requireAddress(addr: string, name: string): string {
+  if (!addr) throw new Error(`${name} is not configured. Set it in environment variables.`);
+  return addr;
+}
 
 // ── ABIs (minimal, only the functions we call from the frontend) ─
 
@@ -47,24 +50,24 @@ export const HEDERA_TESTNET = {
 // ── Contract Instances ───────────────────────────────────────────
 
 export function getRegistryContract(signer: Signer) {
-  return new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, signer);
+  return new Contract(requireAddress(REGISTRY_ADDRESS, "NEXT_PUBLIC_REGISTRY_ADDRESS"), REGISTRY_ABI, signer);
 }
 
 export function getNameServiceContract(signer: Signer) {
-  return new Contract(NAME_SERVICE_ADDRESS, NAME_SERVICE_ABI, signer);
+  return new Contract(requireAddress(NAME_SERVICE_ADDRESS, "NEXT_PUBLIC_NAME_SERVICE_ADDRESS"), NAME_SERVICE_ABI, signer);
 }
 
 // Read-only (no signer needed)
 export function getRegistryReadOnly() {
   const { JsonRpcProvider } = require("ethers") as typeof import("ethers");
   const provider = new JsonRpcProvider(HEDERA_TESTNET.rpcUrl);
-  return new Contract(REGISTRY_ADDRESS, REGISTRY_ABI, provider);
+  return new Contract(requireAddress(REGISTRY_ADDRESS, "NEXT_PUBLIC_REGISTRY_ADDRESS"), REGISTRY_ABI, provider);
 }
 
 export function getNameServiceReadOnly() {
   const { JsonRpcProvider } = require("ethers") as typeof import("ethers");
   const provider = new JsonRpcProvider(HEDERA_TESTNET.rpcUrl);
-  return new Contract(NAME_SERVICE_ADDRESS, NAME_SERVICE_ABI, provider);
+  return new Contract(requireAddress(NAME_SERVICE_ADDRESS, "NEXT_PUBLIC_NAME_SERVICE_ADDRESS"), NAME_SERVICE_ABI, provider);
 }
 
 // ── Network Validation ──────────────────────────────────────────

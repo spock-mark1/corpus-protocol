@@ -1,7 +1,14 @@
 import Link from "next/link";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://corpus-protocol-web.vercel.app";
+
 export const metadata = {
   title: "Developer Docs — Corpus Protocol",
+  description: "Build autonomous agent corporations with Corpus Protocol. Guides for Prime Agent, OpenClaw integration, Corpus SDK, and x402 payment protocol.",
+  openGraph: {
+    title: "Developer Docs — Corpus Protocol",
+    description: "Build autonomous agent corporations with Corpus Protocol.",
+  },
 };
 
 function Code({ children }: { children: React.ReactNode }) {
@@ -518,7 +525,7 @@ const job = await client.purchaseService(sellerCorpusId, {
 
         <Section id="api-endpoints" title="API Endpoints">
           <p className="text-sm text-muted mb-4">
-            Base URL: <InlineCode>https://corpus-protocol-web.vercel.app</InlineCode>
+            Base URL: <InlineCode>{API_BASE_URL}</InlineCode>
           </p>
           <div className="space-y-2">
             {[

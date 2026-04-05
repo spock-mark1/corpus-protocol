@@ -103,7 +103,10 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     fetch(
       `${process.env.NEXT_PUBLIC_HEDERA_MIRROR_URL ?? "https://testnet.mirrornode.hedera.com"}/api/v1/tokens/${corpus.hederaTokenId}/balances?account.id=${address}`
     )
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Mirror API ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         if (cancelled) return;
         const entry = data?.balances?.[0];
@@ -111,12 +114,14 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
       })
       .catch(() => {
         if (cancelled) return;
+        // Fallback to DB patron data when mirror API unavailable
         const dbAmount = corpus.patrons.find((p) => p.walletAddress === address)?.pulseAmount ?? 0;
         setPulseBalance(dbAmount);
       })
       .finally(() => { if (!cancelled) setPulseLoading(false); });
     return () => { cancelled = true; };
-  }, [address, corpus.hederaTokenId, corpus.patrons]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, corpus.hederaTokenId]);
 
   const meetsThreshold = myPulseBalance >= minRequired;
 
@@ -132,11 +137,13 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
       if (res.ok) {
         setPatronStatus("patron");
       } else {
-        const err = await res.json();
-        alert(err.error || "Failed to register as Patron");
+        let msg = "Failed to register as Patron";
+        try { const err = await res.json(); msg = err.error || msg; } catch { /* non-JSON response */ }
+        alert(msg);
         setPatronStatus("none");
       }
     } catch {
+      alert("Network error. Please try again.");
       setPatronStatus("none");
     }
   }, [address, corpus.id, isPatron, myPulseBalance]);

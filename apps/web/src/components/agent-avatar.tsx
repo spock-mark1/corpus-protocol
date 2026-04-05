@@ -1,5 +1,7 @@
 "use client";
 
+import { memo, useMemo } from "react";
+
 /**
  * Deterministic 8-bit robot face avatar for agents.
  * Each name produces a unique combination of head shape, visor, eyes,
@@ -8,12 +10,20 @@
 
 type P = [number, number];
 
+// Cache hash results per (str, seed) pair across renders
+const hashCache = new Map<string, number>();
+
 function hash(str: string, seed = 0): number {
+  const key = `${seed}:${str}`;
+  const cached = hashCache.get(key);
+  if (cached !== undefined) return cached;
   let h = seed;
   for (let i = 0; i < str.length; i++) {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   }
-  return Math.abs(h);
+  const result = Math.abs(h);
+  hashCache.set(key, result);
+  return result;
 }
 
 function pick<T>(arr: T[], name: string, seed: number): T {
@@ -200,24 +210,27 @@ interface AgentAvatarProps {
   className?: string;
 }
 
-export function AgentAvatar({ name, size = 32, className = "" }: AgentAvatarProps) {
-  const colors = pick(PALETTE, name, 0);
-  const headCoords = pick(HEAD_SHAPES, name, 1)();
-  const antenna = pick(ANTENNAS, name, 2);
-  const eyes = pick(EYES, name, 3);
-  const visor = pick(VISORS, name, 4);
-  const mouth = pick(MOUTHS, name, 5);
-  const ears = pick(EARS, name, 6);
-  const chin = pick(CHINS, name, 7);
-  const cheeks = pick(CHEEKS, name, 8);
+export const AgentAvatar = memo(function AgentAvatar({ name, size = 32, className = "" }: AgentAvatarProps) {
+  const { colors, headCoords, antenna, eyes, visor, mouth, ears, chin, cheeks, headSet } = useMemo(() => {
+    const c = pick(PALETTE, name, 0);
+    const hc = pick(HEAD_SHAPES, name, 1)();
+    return {
+      colors: c,
+      headCoords: hc,
+      antenna: pick(ANTENNAS, name, 2),
+      eyes: pick(EYES, name, 3),
+      visor: pick(VISORS, name, 4),
+      mouth: pick(MOUTHS, name, 5),
+      ears: pick(EARS, name, 6),
+      chin: pick(CHINS, name, 7),
+      cheeks: pick(CHEEKS, name, 8),
+      headSet: new Set(hc.map(([x, y]) => `${x},${y}`)),
+    };
+  }, [name]);
 
   const G = 12;
   const px = size / G;
 
-  // Determine which pixels are part of the head (for clipping features)
-  const headSet = new Set(headCoords.map(([x, y]) => `${x},${y}`));
-
-  // Render pixel helper
   const dot = (key: string, x: number, y: number, fill: string, opacity = 1) => (
     <rect
       key={key}
@@ -236,6 +249,7 @@ export function AgentAvatar({ name, size = 32, className = "" }: AgentAvatarProp
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       className={`shrink-0 ${className}`}
+      role="img"
       aria-label={`${name} avatar`}
     >
       {/* Background */}
@@ -282,4 +296,4 @@ export function AgentAvatar({ name, size = 32, className = "" }: AgentAvatarProp
         .map(([x, y]) => dot(`k${x}-${y}`, x, y, colors.accent, 0.3))}
     </svg>
   );
-}
+});

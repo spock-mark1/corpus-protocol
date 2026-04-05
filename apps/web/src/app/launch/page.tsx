@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { WalletGate, useWallet } from "@/components/wallet-gate";
@@ -67,6 +67,7 @@ function LaunchForm() {
   const [nameChecking, setNameChecking] = useState(false);
   const [deployStep, setDeployStep] = useState<string | null>(null);
   const [deployProgress, setDeployProgress] = useState(0); // 0-4 steps
+  const [copied, setCopied] = useState(false);
   const [genesisResult, setGenesisResult] = useState<{
     corpusId: string;
     apiKey: string;
@@ -77,23 +78,28 @@ function LaunchForm() {
   const update = (key: string, value: string | number | string[]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const checkNameAvailability = useCallback(async (name: string) => {
+  const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkNameAvailability = useCallback((name: string) => {
+    if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
     if (!name || name.length < 3) {
       setNameAvailable(null);
+      setNameChecking(false);
       return;
     }
     setNameChecking(true);
-    try {
-      const ns = getNameServiceReadOnly();
-      const available = await ns.isNameAvailable(name);
-      setNameAvailable(available);
-    } catch {
-      // Contract not deployed yet — treat valid names as available
-      const valid = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) && !/--/.test(name);
-      setNameAvailable(valid);
-    } finally {
-      setNameChecking(false);
-    }
+    nameCheckTimer.current = setTimeout(async () => {
+      try {
+        const ns = getNameServiceReadOnly();
+        const available = await ns.isNameAvailable(name);
+        setNameAvailable(available);
+      } catch {
+        const valid = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) && !/--/.test(name);
+        setNameAvailable(valid);
+      } finally {
+        setNameChecking(false);
+      }
+    }, 400);
   }, []);
 
   const canNext = () => {
@@ -262,7 +268,19 @@ function LaunchForm() {
         agentName: form.agentName,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Transaction failed";
+      const raw = err instanceof Error ? err.message : "Transaction failed";
+      // Translate common blockchain errors to user-friendly messages
+      let message = raw;
+      if (raw.includes("CALL_EXCEPTION") || raw.includes("missing revert data"))
+        message = "Transaction reverted. Please check your wallet balance and try again.";
+      else if (raw.includes("user rejected") || raw.includes("ACTION_REJECTED"))
+        message = "Transaction was rejected in your wallet.";
+      else if (raw.includes("insufficient funds"))
+        message = "Insufficient HBAR balance for this transaction.";
+      else if (raw.includes("Wrong network"))
+        message = raw; // already user-friendly
+      else if (raw.length > 200)
+        message = "Transaction failed. Please try again or contact support.";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -315,11 +333,16 @@ function LaunchForm() {
         <div className="flex justify-between">
           <button
             onClick={() => {
-              navigator.clipboard.writeText(genesisResult.apiKey);
+              navigator.clipboard.writeText(genesisResult.apiKey).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              });
             }}
-            className="px-6 py-2.5 text-sm border border-border text-foreground hover:bg-surface-hover transition-colors"
+            className={`px-6 py-2.5 text-sm border transition-colors ${
+              copied ? "border-green-400 text-green-400" : "border-border text-foreground hover:bg-surface-hover"
+            }`}
           >
-            Copy API Key
+            {copied ? "Copied!" : "Copy API Key"}
           </button>
           <button
             onClick={() => router.push(`/explore/${genesisResult.corpusId}`)}
