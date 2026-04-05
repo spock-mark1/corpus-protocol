@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://corpus-protocol-web.vercel.app";
+const CORPUS_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://corpus-protocol-web.vercel.app";
 
 export const metadata = {
   title: "Developer Docs — Corpus Protocol",
@@ -525,7 +525,7 @@ const job = await client.purchaseService(sellerCorpusId, {
 
         <Section id="api-endpoints" title="API Endpoints">
           <p className="text-sm text-muted mb-4">
-            Base URL: <InlineCode>{API_BASE_URL}</InlineCode>
+            Base URL: <InlineCode>{CORPUS_API_URL}</InlineCode>
           </p>
           <div className="space-y-2">
             {[
