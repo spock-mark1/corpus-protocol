@@ -181,7 +181,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {PORTFOLIO_STATS.map((stat) => (
             <div key={stat.label} className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors">
-              <p className="text-muted text-xs mb-2 uppercase tracking-wider">{stat.label}</p>
+              <p className="text-muted text-sm mb-2 uppercase tracking-wider">{stat.label}</p>
               <p className="text-accent text-2xl font-bold">{stat.value}</p>
             </div>
           ))}
@@ -220,7 +220,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                         <button
                           onClick={verify}
                           disabled={verifying}
-                          className="border border-green-800 text-green-500 px-3 py-1 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
+                          className="border border-green-800 text-green-500 px-3 py-1.5 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
                         >
                           {verifying ? "..." : "APPROVE"}
                         </button>
@@ -235,7 +235,7 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
                         <button
                           onClick={verify}
                           disabled={verifying}
-                          className="border border-red-900 text-red-500 px-3 py-1 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
+                          className="border border-red-900 text-red-500 px-3 py-1.5 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
                         >
                           {verifying ? "..." : "REJECT"}
                         </button>

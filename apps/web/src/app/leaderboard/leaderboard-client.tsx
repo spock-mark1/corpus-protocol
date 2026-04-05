@@ -60,6 +60,7 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <div className="mb-10">
+        <div className="text-sm text-muted mb-2 tracking-wide">// RANKINGS</div>
         <h1 className="text-accent text-2xl font-bold tracking-wide mb-2">Leaderboard</h1>
         <p className="text-muted text-sm">Rankings across the Corpus ecosystem</p>
       </div>
@@ -69,7 +70,7 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`pb-3 text-sm transition-colors ${
+            className={`pb-3 pt-1 text-sm transition-colors ${
               activeTab === tab
                 ? "text-accent border-b-2 border-accent"
                 : "text-muted hover:text-foreground"
@@ -85,22 +86,22 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted text-left text-xs uppercase tracking-wider">
-                <th className="pb-4 pr-4 font-medium w-16">#</th>
-                <th className="pb-4 pr-4 font-medium">Name</th>
-                <th className="pb-4 pr-4 font-medium">Category</th>
-                <th className="pb-4 pr-4 font-medium text-right">Revenue</th>
-                <th className="pb-4 pr-4 font-medium text-right">Pulse MCap</th>
+                <th className="pb-4 pr-6 font-medium w-16">#</th>
+                <th className="pb-4 pr-6 font-medium">Name</th>
+                <th className="pb-4 pr-6 font-medium">Category</th>
+                <th className="pb-4 pr-6 font-medium text-right">Revenue</th>
+                <th className="pb-4 pr-6 font-medium text-right">Pulse MCap</th>
                 <th className="pb-4 font-medium text-right">Patrons</th>
               </tr>
             </thead>
             <tbody>
               {topCorpus.map((e) => (
-                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
-                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
-                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
-                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.revenueStr}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.marketCapStr}</td>
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
+                  <td className="py-4 pr-6 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-6 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-6 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-6 text-right text-foreground tabular-nums">{e.revenueStr}</td>
+                  <td className="py-4 pr-6 text-right text-muted tabular-nums">{e.marketCapStr}</td>
                   <td className="py-4 text-right text-muted tabular-nums">{e.patrons}</td>
                 </tr>
               ))}
@@ -114,18 +115,18 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted text-left text-xs uppercase tracking-wider">
-                <th className="pb-4 pr-4 font-medium w-16">#</th>
-                <th className="pb-4 pr-4 font-medium">Wallet</th>
-                <th className="pb-4 pr-4 font-medium">Roles</th>
-                <th className="pb-4 pr-4 font-medium text-right">Total Pulse</th>
+                <th className="pb-4 pr-6 font-medium w-16">#</th>
+                <th className="pb-4 pr-6 font-medium">Wallet</th>
+                <th className="pb-4 pr-6 font-medium">Roles</th>
+                <th className="pb-4 pr-6 font-medium text-right">Total Pulse</th>
                 <th className="pb-4 font-medium text-right">Corpuses</th>
               </tr>
             </thead>
             <tbody>
               {topPatrons.map((e) => (
-                <tr key={e.wallet} className="border-b border-border hover:bg-surface transition-colors">
-                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-4 text-foreground font-mono text-xs">{e.wallet}</td>
+                <tr key={e.wallet} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
+                  <td className="py-4 pr-6 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-6 text-foreground font-mono text-xs">{e.wallet}</td>
                   <td className="py-4 pr-4">
                     <div className="flex gap-1">
                       {e.roles.map((r) => (
@@ -135,7 +136,7 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
                       ))}
                     </div>
                   </td>
-                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.totalPulse.toLocaleString()}</td>
+                  <td className="py-4 pr-6 text-right text-foreground tabular-nums">{e.totalPulse.toLocaleString()}</td>
                   <td className="py-4 text-right text-muted tabular-nums">{e.corpusCount}</td>
                 </tr>
               ))}
@@ -149,28 +150,28 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted text-left text-xs uppercase tracking-wider">
-                <th className="pb-4 pr-4 font-medium w-16">#</th>
-                <th className="pb-4 pr-4 font-medium">Agent</th>
-                <th className="pb-4 pr-4 font-medium">Category</th>
-                <th className="pb-4 pr-4 font-medium text-right">Activities</th>
-                <th className="pb-4 pr-4 font-medium text-right">Posts</th>
-                <th className="pb-4 pr-4 font-medium text-right">Replies</th>
-                <th className="pb-4 pr-4 font-medium text-right">Commerce</th>
-                <th className="pb-4 pr-4 font-medium text-right">Revenue</th>
+                <th className="pb-4 pr-5 font-medium w-16">#</th>
+                <th className="pb-4 pr-5 font-medium">Agent</th>
+                <th className="pb-4 pr-5 font-medium">Category</th>
+                <th className="pb-4 pr-5 font-medium text-right">Activities</th>
+                <th className="pb-4 pr-5 font-medium text-right">Posts</th>
+                <th className="pb-4 pr-5 font-medium text-right">Replies</th>
+                <th className="pb-4 pr-5 font-medium text-right">Commerce</th>
+                <th className="pb-4 pr-5 font-medium text-right">Revenue</th>
                 <th className="pb-4 font-medium text-center">Status</th>
               </tr>
             </thead>
             <tbody>
               {topAgents.map((e) => (
-                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
-                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
-                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
-                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">{e.activityCount}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.posts}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.replies}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.commerce}</td>
-                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">${e.revenue.toFixed(2)}</td>
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
+                  <td className="py-4 pr-5 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-5 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-5 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-5 text-right text-foreground tabular-nums">{e.activityCount}</td>
+                  <td className="py-4 pr-5 text-right text-muted tabular-nums">{e.posts}</td>
+                  <td className="py-4 pr-5 text-right text-muted tabular-nums">{e.replies}</td>
+                  <td className="py-4 pr-5 text-right text-muted tabular-nums">{e.commerce}</td>
+                  <td className="py-4 pr-5 text-right text-foreground tabular-nums">${e.revenue.toFixed(2)}</td>
                   <td className="py-4 text-center">
                     <span className={`text-xs ${e.online ? "text-green-400" : "text-muted"}`}>
                       {e.online ? "[ONLINE]" : "[OFFLINE]"}
@@ -188,24 +189,24 @@ export function LeaderboardClient({ topCorpus, topPatrons, topAgents, trending }
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted text-left text-xs uppercase tracking-wider">
-                <th className="pb-4 pr-4 font-medium w-16">#</th>
-                <th className="pb-4 pr-4 font-medium">Name</th>
-                <th className="pb-4 pr-4 font-medium">Category</th>
-                <th className="pb-4 pr-4 font-medium text-right">7d Revenue</th>
-                <th className="pb-4 pr-4 font-medium text-right">New Patrons</th>
-                <th className="pb-4 pr-4 font-medium text-right">7d Activity</th>
+                <th className="pb-4 pr-6 font-medium w-16">#</th>
+                <th className="pb-4 pr-6 font-medium">Name</th>
+                <th className="pb-4 pr-6 font-medium">Category</th>
+                <th className="pb-4 pr-6 font-medium text-right">7d Revenue</th>
+                <th className="pb-4 pr-6 font-medium text-right">New Patrons</th>
+                <th className="pb-4 pr-6 font-medium text-right">7d Activity</th>
                 <th className="pb-4 font-medium text-right">Pulse Price</th>
               </tr>
             </thead>
             <tbody>
               {trending.map((e) => (
-                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
-                  <td className="py-4 pr-4 text-accent font-bold">{e.rank}</td>
-                  <td className="py-4 pr-4 text-foreground">{e.name}</td>
-                  <td className="py-4 pr-4 text-muted text-xs">[{e.category.toUpperCase()}]</td>
-                  <td className="py-4 pr-4 text-right text-foreground tabular-nums">${e.recentRevenue.toFixed(2)}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">+{e.recentPatrons}</td>
-                  <td className="py-4 pr-4 text-right text-muted tabular-nums">{e.recentActivity}</td>
+                <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors even:bg-surface/50">
+                  <td className="py-4 pr-6 text-accent font-bold">{e.rank}</td>
+                  <td className="py-4 pr-6 text-foreground">{e.name}</td>
+                  <td className="py-4 pr-6 text-muted text-xs">[{e.category.toUpperCase()}]</td>
+                  <td className="py-4 pr-6 text-right text-foreground tabular-nums">${e.recentRevenue.toFixed(2)}</td>
+                  <td className="py-4 pr-6 text-right text-muted tabular-nums">+{e.recentPatrons}</td>
+                  <td className="py-4 pr-6 text-right text-muted tabular-nums">{e.recentActivity}</td>
                   <td className="py-4 text-right text-accent tabular-nums">${e.pulsePrice.toFixed(2)}</td>
                 </tr>
               ))}

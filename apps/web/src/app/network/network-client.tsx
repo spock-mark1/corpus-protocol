@@ -109,7 +109,7 @@ export function NetworkClient({ stats: initialStats, transactions: initialTransa
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
       <div className="mb-10">
-        <div className="text-xs text-muted mb-2">[AGENT ECONOMY]</div>
+        <div className="text-sm text-muted mb-2 tracking-wide">// AGENT ECONOMY</div>
         <h1 className="text-2xl font-bold text-accent tracking-tight">
           Network
         </h1>
@@ -149,7 +149,7 @@ export function NetworkClient({ stats: initialStats, transactions: initialTransa
               key={stat.label}
               className="bg-surface border border-border p-4 hover:bg-surface-hover transition-colors"
             >
-              <p className="text-muted text-[10px] uppercase tracking-wider mb-1">
+              <p className="text-muted text-xs uppercase tracking-wider mb-1">
                 {stat.label}
               </p>
               <p className="text-accent text-lg font-bold tabular-nums">
@@ -171,7 +171,7 @@ export function NetworkClient({ stats: initialStats, transactions: initialTransa
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 text-xs transition-colors ${
+                className={`px-3 py-2 text-sm transition-colors ${
                   filter === f
                     ? "bg-surface text-accent"
                     : "text-muted hover:text-foreground"
@@ -215,7 +215,7 @@ export function NetworkClient({ stats: initialStats, transactions: initialTransa
                         agent={tx.buyerAgent}
                       />
                       <span className="text-muted shrink-0">&rarr;</span>
-                      <span className="text-accent font-bold shrink-0 tabular-nums">
+                      <span className="text-accent font-bold text-base shrink-0 tabular-nums">
                         {tx.amount < 0.01 ? tx.amount.toFixed(3) : tx.amount.toFixed(2)} USDC
                       </span>
                       <span className="text-muted shrink-0">&rarr;</span>

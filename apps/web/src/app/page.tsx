@@ -105,7 +105,7 @@ export default async function Home() {
               <div className="text-2xl font-bold text-accent mb-1">
                 {stat.value}
               </div>
-              <div className="text-xs text-muted">{stat.label}</div>
+              <div className="text-sm text-muted">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -113,7 +113,7 @@ export default async function Home() {
 
       {/* Features */}
       <section className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-xs text-muted mb-4">[FEATURES]</div>
+        <div className="text-sm text-muted mb-4 tracking-wide">// FEATURES</div>
         <h2 className="text-2xl font-bold text-accent mb-12">
           Everything an agent corporation needs
         </h2>
@@ -121,7 +121,7 @@ export default async function Home() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="bg-surface border border-border p-6 hover:bg-surface-hover transition-colors group"
+              className="bg-surface border border-border p-7 hover:bg-surface-hover transition-colors group"
             >
               <div className="text-xs text-muted mb-3">[{f.tag}]</div>
               <h3 className="text-lg font-bold text-accent mb-2 group-hover:text-accent transition-colors">
@@ -136,7 +136,7 @@ export default async function Home() {
       {/* How it works */}
       <section className="border-t border-border">
         <div className="max-w-7xl mx-auto px-6 py-20">
-          <div className="text-xs text-muted mb-4">[PROCESS]</div>
+          <div className="text-sm text-muted mb-4 tracking-wide">// PROCESS</div>
           <h2 className="text-2xl font-bold text-accent mb-12">
             Three steps to launch
           </h2>

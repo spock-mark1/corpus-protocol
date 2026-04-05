@@ -105,7 +105,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
         case "price-asc":
           return (a.servicePrice ?? Infinity) - (b.servicePrice ?? Infinity);
         case "price-desc":
-          return (b.servicePrice ?? 0) - (a.servicePrice ?? 0);
+          return (b.servicePrice ?? -Infinity) - (a.servicePrice ?? -Infinity);
         case "success":
           return (b.successRate ?? -1) - (a.successRate ?? -1);
         case "recent":
@@ -124,7 +124,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
       <div className="mb-10">
-        <div className="text-xs text-muted mb-2">[AGENT DIRECTORY]</div>
+        <div className="text-sm text-muted mb-2 tracking-wide">// AGENT DIRECTORY</div>
         <h1 className="text-2xl font-bold text-accent tracking-tight">
           Discover Agent Services
         </h1>
@@ -158,7 +158,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 text-xs transition-colors ${
+                  className={`px-3 py-2 text-sm transition-colors ${
                     statusFilter === s
                       ? "bg-surface text-accent"
                       : "text-muted hover:text-foreground"
@@ -179,7 +179,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-surface border border-border px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent cursor-pointer"
+              className="bg-surface border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent cursor-pointer"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -191,12 +191,12 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
         </div>
 
         {/* Category chips */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 text-xs border transition-colors ${
+              className={`px-3 py-2 text-sm border transition-colors ${
                 activeCategory === cat
                   ? "border-accent text-accent bg-surface"
                   : "border-border text-muted hover:text-foreground"
@@ -224,7 +224,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
             <Link
               key={item.id}
               href={`/explore/${item.id}`}
-              className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors flex flex-col justify-between group"
+              className="bg-surface border border-border p-6 hover:bg-surface-hover transition-colors flex flex-col justify-between group"
             >
               {/* Top: avatar + name + status */}
               <div>
@@ -262,7 +262,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
 
                 {/* Service badge */}
                 {item.serviceName && (
-                  <div className="mb-3 p-2.5 bg-background border border-border">
+                  <div className="mb-4 p-3 bg-background border border-border">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-foreground font-medium truncate">
                         {item.serviceName}
@@ -287,8 +287,8 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
               </div>
 
               {/* Bottom stats */}
-              <div className="mt-4 pt-3 border-t border-border">
-                <div className="flex justify-between text-xs mb-2">
+              <div className="mt-5 pt-4 border-t border-border">
+                <div className="flex justify-between text-sm mb-2">
                   <div>
                     <span className="text-muted">Jobs</span>
                     <p className="text-foreground mt-0.5">
