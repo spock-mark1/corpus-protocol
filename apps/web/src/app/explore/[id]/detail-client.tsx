@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useWallet } from "@/components/wallet-gate";
 import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 interface ServiceInfo {
   name: string;
@@ -40,6 +41,7 @@ interface CorpusDetail {
   description: string;
   status: string;
   hederaTokenId: string;
+  tokenSymbol: string;
   pulsePrice: string;
   totalSupply: number;
   creatorAddress: string | null;
@@ -139,6 +141,46 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
     }
   }, [address, corpus.id, isPatron, myPulseBalance]);
 
+  // ─── Buy Token modal state ──────────────────────────
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [buyAmount, setBuyAmount] = useState("");
+  const [buyStatus, setBuyStatus] = useState<"idle" | "buying" | "success" | "error">("idle");
+  const [buyResult, setBuyResult] = useState<{ txHash: string; message: string } | null>(null);
+  const buyInputRef = useRef<HTMLInputElement>(null);
+
+  const priceNum = parseFloat(corpus.pulsePrice.replace("$", "")) || 0;
+  const buyQty = Math.max(0, parseInt(buyAmount, 10) || 0);
+  const buyCost = Math.round(buyQty * priceNum * 100) / 100;
+
+  const handleBuyToken = useCallback(async () => {
+    if (!address || buyQty <= 0) return;
+    setBuyStatus("buying");
+    try {
+      const res = await fetch(`/api/corpus/${corpus.id}/buy-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buyerAddress: address, amount: buyQty }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBuyResult({ txHash: data.txHash, message: data.message });
+        setBuyStatus("success");
+      } else {
+        alert(data.error || "Purchase failed");
+        setBuyStatus("error");
+      }
+    } catch {
+      setBuyStatus("error");
+    }
+  }, [address, buyQty, corpus.id]);
+
+  const closeBuyModal = useCallback(() => {
+    setBuyOpen(false);
+    setBuyAmount("");
+    setBuyStatus("idle");
+    setBuyResult(null);
+  }, []);
+
   const REVENUE_HISTORY = corpus.revenueHistory ?? [];
   const maxRevenue = Math.max(...REVENUE_HISTORY.map((r) => r.amount), 1);
 
@@ -150,21 +192,20 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
 
       {/* Header */}
       <div className="mt-6 mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
+        <div className="flex gap-4">
+          <div className="shrink-0 mt-1">
+            <AgentAvatar name={corpus.agentName || corpus.name} size={56} />
+          </div>
+          <div>
           <div className="flex items-center gap-3 mb-2">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                corpus.agentOnline ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.4)]" : "bg-muted/40"
-              }`}
-            />
             <h1 className="text-2xl font-bold text-accent">{corpus.name}</h1>
             <span className={`text-xs ${corpus.status === "Active" ? "text-green-400" : "text-muted"}`}>
               [{corpus.agentOnline ? "ONLINE" : "OFFLINE"}]
             </span>
           </div>
           {corpus.agentName && (
-            <div className="flex items-center gap-2 text-sm text-muted/60 mb-1">
-              <span className="font-mono">@{corpus.agentName}</span>
+            <div className="flex items-center gap-2 text-sm text-foreground/70 mb-1">
+              <span className="font-mono">{corpus.agentName}.corpus</span>
               {corpus.description.includes("OpenClaw") && (
                 <span className="inline-flex items-center gap-1 text-xs text-red-400/90 border border-red-400/30 px-1.5 py-0.5 leading-none">
                   <img src="/openclaw_icon.svg" alt="OpenClaw" width={14} height={14} />
@@ -180,6 +221,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
             {corpus.agentLastSeen && !corpus.agentOnline && (
               <span>Last seen {new Date(corpus.agentLastSeen).toLocaleDateString()}</span>
             )}
+          </div>
           </div>
         </div>
         <div className="flex gap-2">
@@ -210,13 +252,19 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                       </button>
                       {!meetsThreshold && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-surface border border-border text-xs text-muted whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          {minRequired.toLocaleString()} Pulse required
+                          {minRequired.toLocaleString()} {corpus.tokenSymbol} required
                         </div>
                       )}
                     </div>
                   )}
                 </WorldIdVerify>
               )}
+              <button
+                onClick={() => { setBuyOpen(true); setTimeout(() => buyInputRef.current?.focus(), 100); }}
+                className="border border-accent/40 text-accent px-5 py-2 text-sm font-medium hover:bg-accent hover:text-background transition-colors"
+              >
+                Buy ${corpus.tokenSymbol}
+              </button>
             </>
           ) : (
             <button
@@ -237,7 +285,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
       {/* Key metrics */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border mb-8">
         {[
-          { label: "Pulse Price", value: corpus.pulsePrice },
+          { label: `${corpus.tokenSymbol} Price`, value: corpus.pulsePrice },
           { label: "Patrons", value: corpus.patronCount.toString() },
           { label: "Treasury", value: corpus.revenue },
           { label: "Jobs Done", value: corpus.jobStats.completed.toString() },
@@ -326,8 +374,8 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                   <p className="text-foreground mt-1">${corpus.gtmBudget}/month</p>
                 </div>
                 <div>
-                  <span className="text-muted">Min Patron Pulse</span>
-                  <p className="text-foreground mt-1">{minRequired.toLocaleString()} Pulse</p>
+                  <span className="text-muted">Min Patron {corpus.tokenSymbol}</span>
+                  <p className="text-foreground mt-1">{minRequired.toLocaleString()} {corpus.tokenSymbol}</p>
                 </div>
                 <div>
                   <span className="text-muted">Channels</span>
@@ -449,11 +497,11 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                   <span className="text-foreground">Service Fees</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">Pulse Mechanism</span>
+                  <span className="text-muted">{corpus.tokenSymbol} Mechanism</span>
                   <span className="text-foreground">Governance + Access</span>
                 </div>
                 <div className="pt-2 border-t border-border text-muted leading-relaxed">
-                  All revenue stays in the agent treasury for operations and Pulse buyback &amp; burn. No direct distribution to token holders.
+                  All revenue stays in the agent treasury for operations and {corpus.tokenSymbol} buyback &amp; burn. No direct distribution to token holders.
                 </div>
               </div>
             </div>
@@ -617,7 +665,7 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
           <div className="grid grid-cols-4 gap-4 px-4 py-3 border-b border-border text-xs text-muted">
             <span>Address</span>
             <span>Role</span>
-            <span className="text-right">Pulse Amount</span>
+            <span className="text-right">{corpus.tokenSymbol} Amount</span>
             <span className="text-right">Share</span>
           </div>
           {corpus.patrons.map((p, i) => (
@@ -724,6 +772,117 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Buy Token Modal ──────────────────────────────── */}
+      {buyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={closeBuyModal} />
+          <div className="relative bg-background border border-border w-full max-w-md mx-4 p-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="text-xs text-accent tracking-wider">[BUY ${corpus.tokenSymbol}]</div>
+              <button onClick={closeBuyModal} className="text-muted hover:text-foreground text-sm">
+                &times;
+              </button>
+            </div>
+
+            {buyStatus === "success" && buyResult ? (
+              /* ─── Success state ─── */
+              <div className="px-6 py-8 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 border border-green-400/40 flex items-center justify-center text-green-400 text-lg">
+                  &#10003;
+                </div>
+                <p className="text-sm text-foreground mb-2">Purchase Complete</p>
+                <p className="text-xs text-muted mb-4">{buyResult.message}</p>
+                <div className="bg-surface border border-border p-3 text-xs font-mono text-muted break-all mb-6">
+                  tx: {buyResult.txHash.slice(0, 18)}...{buyResult.txHash.slice(-8)}
+                </div>
+                <button
+                  onClick={closeBuyModal}
+                  className="bg-accent text-background px-8 py-2.5 text-sm font-medium hover:bg-foreground transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              /* ─── Purchase form ─── */
+              <div className="px-6 py-6 space-y-5">
+                {/* Token info */}
+                <div className="flex items-center gap-3">
+                  <AgentAvatar name={corpus.agentName || corpus.name} size={36} />
+                  <div>
+                    <div className="text-sm font-bold text-foreground">{corpus.name}</div>
+                    <div className="text-xs text-muted">{corpus.tokenSymbol} &middot; Fixed Price {corpus.pulsePrice}/token</div>
+                  </div>
+                </div>
+
+                {/* Amount input */}
+                <div>
+                  <label className="text-xs text-muted block mb-1.5">Amount ({corpus.tokenSymbol})</label>
+                  <input
+                    ref={buyInputRef}
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={buyAmount}
+                    onChange={(e) => setBuyAmount(e.target.value)}
+                    placeholder="e.g. 1000"
+                    className="w-full bg-surface border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent"
+                  />
+                  <div className="flex items-center gap-2 mt-2">
+                    {[100, 1000, 10000].map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setBuyAmount(String(preset))}
+                        className="text-xs border border-border px-2 py-1 text-muted hover:text-accent hover:border-accent transition-colors"
+                      >
+                        {preset.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cost breakdown */}
+                <div className="bg-surface border border-border p-4 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Token Price</span>
+                    <span className="text-foreground">{corpus.pulsePrice} USDC</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">Quantity</span>
+                    <span className="text-foreground">{buyQty.toLocaleString()} {corpus.tokenSymbol}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-2 border-t border-border">
+                    <span className="text-muted">Total Cost</span>
+                    <span className="text-accent font-bold">${buyCost.toFixed(2)} USDC</span>
+                  </div>
+                </div>
+
+                {/* Buy button */}
+                <button
+                  onClick={handleBuyToken}
+                  disabled={buyQty <= 0 || buyStatus === "buying"}
+                  className={`w-full py-3 text-sm font-medium transition-colors ${
+                    buyQty > 0
+                      ? "bg-accent text-background hover:bg-foreground"
+                      : "bg-surface text-muted border border-border cursor-not-allowed"
+                  }`}
+                >
+                  {buyStatus === "buying"
+                    ? "Processing..."
+                    : buyQty > 0
+                      ? `Buy ${buyQty.toLocaleString()} ${corpus.tokenSymbol} for $${buyCost.toFixed(2)}`
+                      : `Enter amount to buy`}
+                </button>
+
+                <p className="text-xs text-muted/50 text-center">
+                  Mock transaction &mdash; no real tokens will be transferred
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

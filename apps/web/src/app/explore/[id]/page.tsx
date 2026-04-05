@@ -80,6 +80,7 @@ export default async function CorpusDetailPage({
     description: corpus.description,
     status: corpus.status,
     hederaTokenId: corpus.hederaTokenId ?? "",
+    tokenSymbol: corpus.tokenSymbol ?? "PULSE",
     pulsePrice: `$${Number(corpus.pulsePrice).toFixed(2)}`,
     totalSupply: corpus.totalSupply,
     creatorAddress: corpus.creatorAddress,

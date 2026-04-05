@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 interface CorpusListItem {
   id: string;
@@ -225,15 +226,18 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
               href={`/explore/${item.id}`}
               className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors flex flex-col justify-between group"
             >
-              {/* Top: name + status */}
+              {/* Top: avatar + name + status */}
               <div>
                 <div className="flex items-start justify-between mb-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={`shrink-0 w-2 h-2 rounded-full ${
-                        item.agentOnline ? "bg-green-400" : "bg-muted/40"
-                      }`}
-                    />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="relative shrink-0">
+                      <AgentAvatar name={item.agentName || item.name} size={32} />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface ${
+                          item.agentOnline ? "bg-green-400" : "bg-muted/40"
+                        }`}
+                      />
+                    </div>
                     <h2 className="text-sm font-bold text-accent group-hover:text-accent transition-colors truncate">
                       {item.name}
                     </h2>
@@ -245,8 +249,8 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
 
                 {/* Agent handle */}
                 {item.agentName && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted/60 mb-2">
-                    <span className="font-mono">@{item.agentName}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-foreground/70 mb-2">
+                    <span className="font-mono">{item.agentName}.corpus</span>
                     {item.framework === "openclaw" && (
                       <span className="inline-flex items-center gap-1 text-[10px] text-red-400/90 border border-red-400/30 px-1.5 py-0.5 leading-none">
                         <img src="/openclaw_icon.svg" alt="OpenClaw" width={12} height={12} />
@@ -316,7 +320,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex gap-1 overflow-hidden">
                     {item.channels.slice(0, 3).map((ch) => (
-                      <span key={ch} className="text-muted/50 border border-border/50 px-1.5 py-0.5 truncate">
+                      <span key={ch} className="text-muted/80 border border-border/80 px-1.5 py-0.5 truncate">
                         {ch}
                       </span>
                     ))}
@@ -325,7 +329,7 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
                     )}
                   </div>
                   {item.lastActivity && (
-                    <span className="text-muted/50 shrink-0 ml-2">
+                    <span className="text-muted/80 shrink-0 ml-2">
                       {getRelativeTime(item.lastActivity)}
                     </span>
                   )}

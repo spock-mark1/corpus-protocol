@@ -4,6 +4,7 @@ import { competitorAnalysis } from "./competitor-analysis";
 import { findLeads } from "./find-leads";
 import { enrichProfile } from "./enrich-profile";
 import { intentSignal } from "./intent-signal";
+import { productReview } from "./product-review";
 
 export type FulfillmentPayload = Record<string, unknown>;
 export type FulfillmentResult = Record<string, unknown>;
@@ -17,6 +18,7 @@ const handlers: Record<string, Handler> = {
   find_leads: findLeads,
   enrich_profile: enrichProfile,
   intent_signal: intentSignal,
+  product_review: productReview,
 };
 
 export async function fulfillInstant(

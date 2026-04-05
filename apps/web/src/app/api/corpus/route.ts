@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       initialPrice,
       minPatronPulse,
       hederaTokenId,
+      tokenSymbol,
     } = body;
 
     // Required fields
@@ -169,6 +170,7 @@ export async function POST(request: NextRequest) {
         onChainId: onChainId ?? null,
         agentName: agentName ?? null,
         hederaTokenId: hederaTokenId ?? null,
+        tokenSymbol: tokenSymbol ?? null,
         agentWalletId,
         agentWalletAddress,
       })

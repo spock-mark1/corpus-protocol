@@ -26,6 +26,7 @@ export const cppCorpus = pgTable(
 
     // Pulse Token
     hederaTokenId: text("hederaTokenId"),
+    tokenSymbol: text("tokenSymbol"),
     pulsePrice: numeric("pulsePrice", { precision: 18, scale: 6 }).notNull().default("0"),
     totalSupply: integer("totalSupply").notNull().default(1000000),
 
