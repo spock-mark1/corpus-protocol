@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/network", label: "Activity", requiresWallet: false },
   { href: "/marketplace", label: "Playbooks", requiresWallet: false },
   { href: "/leaderboard", label: "Leaderboard", requiresWallet: false },
+  { href: "/docs", label: "Docs", requiresWallet: false, highlight: true },
 ];
 
 export function Header() {
@@ -32,11 +33,16 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={`text-sm transition-colors flex items-center gap-1.5 ${
-                  pathname === item.href
-                    ? "text-nav-accent"
-                    : "text-muted hover:text-nav-foreground"
+                  item.highlight
+                    ? pathname === item.href
+                      ? "text-green-400 font-bold"
+                      : "text-green-400/80 hover:text-green-400 font-medium"
+                    : pathname === item.href
+                      ? "text-nav-accent"
+                      : "text-muted hover:text-nav-foreground"
                 }`}
               >
+                {item.highlight && <span className="text-green-400/60">&lt;/&gt;</span>}
                 {item.label}
                 {item.requiresWallet && !primaryWallet && (
                   <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" title="Wallet required" />
