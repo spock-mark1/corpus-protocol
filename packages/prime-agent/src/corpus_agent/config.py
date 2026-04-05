@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     heartbeat_interval: int = Field(default=60, description="Seconds between heartbeats")
     max_iterations: int = Field(default=20, description="Max tool-call iterations per cycle")
     approval_threshold: Decimal = Field(default=Decimal("10"), description="USD threshold for auto-approval")
+    browser_headless: bool = Field(default=False, description="Run browser in headless mode")
 
     def __init__(self, **kwargs):
         overrides = _json_config_source()

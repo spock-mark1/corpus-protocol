@@ -10,7 +10,7 @@ import subprocess
 from rich.console import Console
 from stagehand import Stagehand
 
-from corpus_agent.config import APP_DIR
+from corpus_agent.config import APP_DIR, Settings
 
 console = Console()
 
@@ -78,16 +78,19 @@ class BrowserSession:
 
     @classmethod
     async def start(cls, *, model_api_key: str | None = None) -> BrowserSession:
+        settings = Settings()
+        headless = settings.browser_headless
+
         def _start():
             client = Stagehand(
                 server="local",
-                local_headless=False,
+                local_headless=headless,
                 model_api_key=model_api_key,
             )
             session = client.sessions.start(
                 model_name="gpt-4o",
                 browser={"type": "local", "launchOptions": {
-                    "headless": False,
+                    "headless": headless,
                     "userDataDir": CHROME_PROFILE_DIR,
                     "args": CHROME_ARGS,
                 }},
@@ -106,17 +109,20 @@ class BrowserSession:
         except Exception:
             pass
 
+        settings = Settings()
+        headless = settings.browser_headless
+
         for attempt in range(1, MAX_RECONNECT_ATTEMPTS + 1):
             try:
                 def _reconnect():
                     client = Stagehand(
                         server="local",
-                        local_headless=False,
+                        local_headless=headless,
                     )
                     session = client.sessions.start(
                         model_name="gpt-4o",
                         browser={"type": "local", "launchOptions": {
-                            "headless": False,
+                            "headless": headless,
                             "userDataDir": CHROME_PROFILE_DIR,
                             "args": CHROME_ARGS,
                         }},
