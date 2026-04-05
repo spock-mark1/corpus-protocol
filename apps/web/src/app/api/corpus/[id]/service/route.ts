@@ -7,8 +7,8 @@ import { broadcastTransferWithAuthorization } from "@/lib/circle";
 import { fulfillInstant } from "@/lib/fulfillment";
 
 // Arc network config (USDC = native gas token)
-const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 11155111);
-const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x79a02482A880BCE3B13E09dA970DC34Db4CD24d1";
+const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 5042002);
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS ?? "0x3600000000000000000000000000000000000000";
 
 
 // GET /api/corpus/:id/service — Returns 402 with payment details (x402 storefront)
@@ -179,7 +179,7 @@ export async function POST(
     // 6. EIP-3009 signature verification
     const { ethers } = await import("ethers");
     const EIP3009_DOMAIN = {
-      name: "USD Coin",
+      name: "USDC",
       version: "2",
       chainId: ARC_CHAIN_ID,
       verifyingContract: USDC_ADDRESS,
@@ -236,7 +236,7 @@ export async function POST(
         value,
         validAfter: Number(payment.validAfter ?? 0),
         validBefore: Number(payment.validBefore ?? now + 300),
-        nonce: nonce ?? "0x" + "0".repeat(64),
+        nonce: nonce ?? ethers.ZeroHash,
         signature,
         chainId: ARC_CHAIN_ID,
         tokenAddress: USDC_ADDRESS,

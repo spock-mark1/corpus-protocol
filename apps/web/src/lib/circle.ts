@@ -101,7 +101,7 @@ export async function signPayment(
   const client = getClient();
 
   const domain = {
-    name: "USD Coin",
+    name: "USDC",
     version: "2",
     chainId: payload.chainId,
     verifyingContract: payload.tokenAddress,
@@ -175,7 +175,7 @@ export async function broadcastTransferWithAuthorization(payload: {
 }): Promise<{ txHash: string }> {
   const { ethers } = await import("ethers");
 
-  const arcRpcUrl = process.env.ARC_RPC_URL ?? "https://rpc.arc.money";
+  const arcRpcUrl = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
   const relayerKey = process.env.ARC_RELAYER_PRIVATE_KEY ?? "";
   if (!relayerKey) {
     throw new Error("ARC_RELAYER_PRIVATE_KEY must be set for on-chain broadcasts");
@@ -187,7 +187,7 @@ export async function broadcastTransferWithAuthorization(payload: {
   const tokenAddress =
     payload.tokenAddress ??
     process.env.NEXT_PUBLIC_USDC_ADDRESS ??
-    "0x79a02482A880BCE3B13E09dA970DC34Db4CD24d1";
+    "0x3600000000000000000000000000000000000000";
 
   // EIP-3009 transferWithAuthorization ABI
   const usdc = new ethers.Contract(
