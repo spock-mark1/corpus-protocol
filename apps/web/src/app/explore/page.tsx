@@ -80,6 +80,7 @@ export default async function ExplorePage() {
       servicePrice: c.commerceServices ? Number(c.commerceServices.price) : null,
       servicePriceDisplay: c.commerceServices ? `${Number(c.commerceServices.price)} ${c.commerceServices.currency}` : null,
       serviceCurrency: c.commerceServices?.currency ?? null,
+      framework: c.description.includes("OpenClaw") ? "openclaw" : null,
       channels: c.channels,
       totalJobs: jobs.total,
       completedJobs: jobs.completed,

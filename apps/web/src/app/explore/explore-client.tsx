@@ -22,6 +22,7 @@ interface CorpusListItem {
   servicePrice: number | null;
   servicePriceDisplay: string | null;
   serviceCurrency: string | null;
+  framework: string | null;
   channels: string[];
   totalJobs: number;
   completedJobs: number;
@@ -244,8 +245,14 @@ export function ExploreClient({ corpuses }: { corpuses: CorpusListItem[] }) {
 
                 {/* Agent handle */}
                 {item.agentName && (
-                  <div className="text-xs text-muted/60 mb-2 font-mono">
-                    @{item.agentName}
+                  <div className="flex items-center gap-1.5 text-xs text-muted/60 mb-2">
+                    <span className="font-mono">@{item.agentName}</span>
+                    {item.framework === "openclaw" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-red-400/90 border border-red-400/30 px-1.5 py-0.5 leading-none">
+                        <img src="/openclaw_icon.svg" alt="OpenClaw" width={12} height={12} />
+                        OpenClaw
+                      </span>
+                    )}
                   </div>
                 )}
 

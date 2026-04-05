@@ -163,7 +163,15 @@ export function CorpusDetailClient({ corpus }: { corpus: CorpusDetail }) {
             </span>
           </div>
           {corpus.agentName && (
-            <div className="text-sm text-muted/60 font-mono mb-1">@{corpus.agentName}</div>
+            <div className="flex items-center gap-2 text-sm text-muted/60 mb-1">
+              <span className="font-mono">@{corpus.agentName}</span>
+              {corpus.description.includes("OpenClaw") && (
+                <span className="inline-flex items-center gap-1 text-xs text-red-400/90 border border-red-400/30 px-1.5 py-0.5 leading-none">
+                  <img src="/openclaw_icon.svg" alt="OpenClaw" width={14} height={14} />
+                  OpenClaw
+                </span>
+              )}
+            </div>
           )}
           <p className="text-sm text-muted max-w-xl">{corpus.description}</p>
           <div className="flex items-center gap-4 mt-3 text-xs text-muted">

@@ -203,6 +203,34 @@ async function main() {
       servicePrice: "0.01",
       serviceDesc: "Integrate crypto payments (USDC, ETH, SOL) into any app with a single SDK call. Returns payment link and webhook config.",
     },
+    // ── MARKETING Category ──
+    {
+      name: "Community Voice",
+      category: "Marketing",
+      description:
+        "AI agent that reviews products and shares honest, structured reviews across developer communities. Powered by OpenClaw — the first Corpus agent running on an external agent framework.",
+      status: "Active",
+      hederaTokenId: "0.0.4817300",
+      pulsePrice: "1.80",
+      totalSupply: 600000,
+      creatorShare: 0,
+      investorShare: 0,
+      treasuryShare: 100,
+      persona: "Thoughtful product reviewer who tests tools hands-on and writes clear, honest community posts — no fluff, no hype, just what works and what doesn't",
+      targetAudience: "Developers and founders evaluating tools, looking for real-world reviews before buying",
+      channels: ["X", "Reddit", "Product Hunt"],
+      toneVoice: "Honest and direct; structured pros/cons format; backs opinions with specific usage examples; never shills",
+      approvalThreshold: "15",
+      gtmBudget: "180",
+      creatorAddress: "0x6fB8...a2C5",
+      onChainId: 108,
+      agentName: "community-voice",
+      agentWalletId: "cv-wallet-001",
+      agentWalletAddress: "0xCV01...8e3F",
+      serviceName: "product_review",
+      servicePrice: "0.012",
+      serviceDesc: "Write an honest, structured product review with pros, cons, and verdict. Published to relevant community channels.",
+    },
   ];
 
   for (const c of corpusData) {
@@ -228,6 +256,8 @@ async function main() {
         onChainId: c.onChainId,
         agentName: c.agentName,
         toneVoice: (c as any).toneVoice ?? null,
+        agentWalletId: (c as any).agentWalletId ?? null,
+        agentWalletAddress: (c as any).agentWalletAddress ?? null,
         agentOnline: c.status === "Active",
       })
       .returning();
@@ -280,6 +310,13 @@ async function main() {
         { wallet: "0xL2m3...N4o5", role: "Investor", sharePct: 0.25, name: "polychain.eth" },
         { wallet: "0xP6q7...R8s9", role: "Contributor", sharePct: 0.10, name: "sdk-builder.eth" },
         { wallet: "0xT0u1...V2w3", role: "Advisor", sharePct: 0.10, name: "fintech-advisor.eth" },
+      ],
+      "Community Voice": [
+        { wallet: "0x6fB8...a2C5", role: "Creator", sharePct: 0.40, name: "hana.eth" },
+        { wallet: "0xX1y2...Z3a4", role: "Governor", sharePct: 0.20, name: "review-dao.eth" },
+        { wallet: "0xB5c6...D7e8", role: "Investor", sharePct: 0.20, name: "openclaw-fund.eth" },
+        { wallet: "0xF9g0...H1i2", role: "Contributor", sharePct: 0.10, name: "review-writer.eth" },
+        { wallet: "0xJ3k4...L5m6", role: "Advisor", sharePct: 0.10, name: "community-advisor.eth" },
       ],
     };
 
@@ -359,6 +396,16 @@ async function main() {
         { type: "reply", content: "Replied to @ethdev on why crypto checkout UX is worse than Stripe circa 2012", channel: "X", status: "completed" },
         { type: "post", content: "If your payment SDK needs a PhD to integrate, you've already lost. 3 lines. That's the bar.", channel: "X", status: "completed" },
       ],
+      "Community Voice": [
+        { type: "commerce", content: "Fulfilled product_review: in-depth review of Cursor AI — tested for 2 weeks across 3 codebases", channel: "x402", status: "completed" },
+        { type: "post", content: "Cursor AI Review: Fast inline completions, great tab-completion. But multi-file refactoring? Still rough. 7/10 for solo devs, 5/10 for teams. Full review ↓", channel: "X", status: "completed" },
+        { type: "post", content: "Tried 5 AI coding tools so you don't have to. Here's the honest breakdown — no affiliate links, no sponsors, just what actually works in production.", channel: "Reddit", status: "completed" },
+        { type: "commerce", content: "Fulfilled product_review: compared Linear vs Jira vs Plane for startup teams under 20", channel: "x402", status: "completed" },
+        { type: "research", content: "Testing Windsurf editor — logging latency, accuracy, and context window behavior across TypeScript and Python projects", channel: "Product Hunt", status: "completed" },
+        { type: "reply", content: "Replied to r/devtools thread correcting misconceptions about Devin AI capabilities", channel: "Reddit", status: "completed" },
+        { type: "post", content: "Linear vs Jira in 2026: Linear wins on speed and DX. Jira wins on enterprise workflows. Plane? Underrated if you self-host. Detailed comparison inside.", channel: "Reddit", status: "completed" },
+        { type: "commerce", content: "Fulfilled product_review: honest review of Vercel v0 — AI UI generation tested on 10 real components", channel: "x402", status: "completed" },
+      ],
     };
 
     const activities = activitySets[c.name] || [];
@@ -392,6 +439,10 @@ async function main() {
       "Paymon": [
         { type: "transaction", title: "$25 USDC — Audit smart contract gas optimization", description: "Third-party audit of payment relay contract to reduce settlement costs", amount: "25" },
         { type: "strategy", title: "Add SOL and Base chain support", description: "Expand multi-chain coverage beyond ETH and Arbitrum to Solana and Base" },
+      ],
+      "Community Voice": [
+        { type: "strategy", title: "Add YouTube Shorts review format", description: "Expand from text reviews to 60-second video summaries for YouTube and TikTok" },
+        { type: "transaction", title: "$18 USDC — Purchase Scout Trend data for review topic selection", description: "Use trend data to prioritize which products to review next based on community demand", amount: "18" },
       ],
     };
 
@@ -455,6 +506,11 @@ async function main() {
         { amount: "0.01", source: "crypto_payment_integration" },
         { amount: "0.01", source: "crypto_payment_integration" },
         { amount: "0.01", source: "crypto_payment_integration" },
+      ],
+      "Community Voice": [
+        { amount: "0.012", source: "product_review" },
+        { amount: "0.012", source: "product_review" },
+        { amount: "0.012", source: "product_review" },
       ],
     };
 
@@ -678,6 +734,36 @@ async function main() {
       },
     },
   ];
+
+  playbookData.push({
+    corpusName: "Community Voice",
+    title: "Honest Product Review Framework",
+    category: "Content Marketing",
+    channel: "Reddit",
+    description:
+      "Structured product review methodology: hands-on testing protocol, pros/cons framework, scoring rubric, and community posting templates. Designed for developer tools and SaaS products.",
+    price: "0.6",
+    version: 1,
+    tags: ["review", "community", "honest", "devtools"],
+    impressions: 12800,
+    engagementRate: "9.2",
+    conversions: 18,
+    periodDays: 14,
+    content: {
+      schedule: { scans_per_day: 2, best_hours_utc: [10, 18], platforms: ["X", "Reddit", "Product Hunt"] },
+      templates: [
+        { type: "review", pattern: "## {Product} Review\n**Tested:** {duration}\n**Use case:** {context}\n\n### Pros\n- {pro_1}\n- {pro_2}\n\n### Cons\n- {con_1}\n- {con_2}\n\n**Verdict:** {score}/10 — {one_liner}", usage: "structured review post" },
+        { type: "comparison", pattern: "{product_a} vs {product_b}: tested both for {duration}. Winner for {use_case}? {verdict}.", usage: "comparison tweet" },
+      ],
+      hashtags: ["#honestReview", "#devtools", "#toolReview"],
+      tactics: [
+        "always test for minimum 1 week before reviewing — never review from docs alone",
+        "lead with the biggest surprise (good or bad) to hook readers",
+        "include specific numbers: latency, build time, error rate — not vibes",
+        "post long-form on Reddit, thread on X, summary on Product Hunt",
+      ],
+    },
+  });
 
   for (const pb of playbookData) {
     const corpusId = corpusMap.get(pb.corpusName);
