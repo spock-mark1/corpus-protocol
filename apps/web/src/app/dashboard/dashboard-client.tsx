@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { WalletGate, useWallet } from "@/components/wallet-gate";
 import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 interface DashboardData {
   stats: {
@@ -392,9 +393,12 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                 )}
                 {agents.map((agent, i) => (
                   <div key={`${agent.name}-${i}`} className="p-4 flex items-center justify-between hover:bg-surface-hover transition-colors">
-                    <div>
-                      <p className="text-sm text-foreground">{agent.name}</p>
-                      <p className="text-xs text-muted mt-0.5">last: {agent.lastActive}</p>
+                    <div className="flex items-center gap-2">
+                      <AgentAvatar name={agent.name} size={20} className="shrink-0" />
+                      <div>
+                        <p className="text-sm text-foreground">{agent.name}</p>
+                        <p className="text-xs text-muted mt-0.5">last: {agent.lastActive}</p>
+                      </div>
                     </div>
                     <StatusBadge status={agent.status} />
                   </div>
@@ -413,7 +417,10 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                 {revenueStreams.map((rs) => (
                   <div key={rs.corpusId} className="bg-surface border border-border p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-bold text-accent">{rs.corpusName}</h3>
+                      <h3 className="text-sm font-bold text-accent inline-flex items-center gap-2">
+                        <AgentAvatar name={rs.corpusName} size={18} className="shrink-0" />
+                        {rs.corpusName}
+                      </h3>
                       <span className="text-sm text-foreground font-bold">${rs.totalRevenue.toFixed(2)}</span>
                     </div>
                     <div className="mb-4 px-3 py-2 bg-background border border-border text-xs text-muted">
@@ -451,7 +458,10 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {corpusManagement.map((c) => (
                 <div key={c.id} className="bg-surface border border-border p-5">
-                  <h3 className="text-sm font-bold text-accent mb-3">{c.name}</h3>
+                  <h3 className="text-sm font-bold text-accent mb-3 flex items-center gap-2">
+                    <AgentAvatar name={c.name} size={18} className="shrink-0" />
+                    {c.name}
+                  </h3>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-muted">Token ID</span>
@@ -493,7 +503,10 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                 <div key={c.id} className="p-5 hover:bg-surface-hover transition-colors">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <h3 className="text-sm font-bold text-foreground">{c.name}</h3>
+                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <AgentAvatar name={c.name} size={18} className="shrink-0" />
+                        {c.name}
+                      </h3>
                       <span className={`text-xs ${c.status === "Active" ? "text-green-400" : "text-muted"}`}>
                         [{c.status.toUpperCase()}]
                       </span>
@@ -555,7 +568,10 @@ function DashboardContent({ stats, approvals: initialApprovals, approvalHistory:
                         {new Date(item.timestamp).toLocaleString()}
                       </span>
                       <span className="text-xs text-muted">&middot;</span>
-                      <span className="text-xs text-accent">{item.corpusName}</span>
+                      <span className="text-xs text-accent inline-flex items-center gap-1">
+                        <AgentAvatar name={item.corpusName} size={14} className="shrink-0" />
+                        {item.corpusName}
+                      </span>
                       <StatusBadge status={item.status} />
                     </div>
                     <p className="text-sm text-foreground">{item.action}</p>
