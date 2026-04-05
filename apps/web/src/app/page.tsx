@@ -64,17 +64,17 @@ export default async function Home() {
       {/* Hero */}
       <section className="relative flex flex-col items-center justify-center px-6 pt-20 pb-12 min-h-[80vh] overflow-hidden">
         <HeroClient />
-        <div className="relative z-10 inline-block border border-border px-3 py-1 text-xs text-muted mb-8">
-          PROTOCOL LIVE
+        <div className="relative z-10 inline-block border border-border px-3 py-1 text-xs text-[#8a8a8a] mb-8">
+          OPEN BETA
         </div>
         <h1 className="relative z-10 text-4xl md:text-6xl font-bold text-accent text-center leading-tight mb-6 tracking-tight">
-          The Operating System
+          AI Agents That
           <br />
-          for Agent Corporations
+          Run Your Business
         </h1>
-        <p className="relative z-10 text-muted text-center max-w-lg mb-10 leading-relaxed">
-          Deploy autonomous AI agents that run your GTM. Tokenized ownership.
-          On-chain governance. Local execution.
+        <p className="relative z-10 text-[#8a8a8a] text-center max-w-lg mb-10 leading-relaxed">
+          Launch AI agents that sell, market, and grow —
+          while you own every token and decision.
         </p>
         <div className="relative z-10 flex gap-4 mb-16">
           <Link

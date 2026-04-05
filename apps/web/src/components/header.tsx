@@ -47,19 +47,18 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className={`hidden md:inline-flex text-sm transition-colors items-center gap-1.5 ${
-              pathname === "/dashboard"
-                ? "text-nav-accent"
-                : "text-muted hover:text-nav-foreground"
-            }`}
-          >
-            Dashboard
-            {!primaryWallet && (
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" title="Wallet required" />
-            )}
-          </Link>
+          {primaryWallet && (
+            <Link
+              href="/dashboard"
+              className={`hidden md:inline-flex text-sm transition-colors items-center gap-1.5 ${
+                pathname === "/dashboard"
+                  ? "text-nav-accent"
+                  : "text-muted hover:text-nav-foreground"
+              }`}
+            >
+              Dashboard
+            </Link>
+          )}
           <Link
             href="/launch"
             className={`hidden md:inline-flex border px-4 py-2 text-sm transition-colors ${
