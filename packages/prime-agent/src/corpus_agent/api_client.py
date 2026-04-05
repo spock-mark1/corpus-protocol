@@ -176,7 +176,7 @@ class CorpusAPIClient:
     async def discover_services(
         self, category: str | None = None, target: str | None = None
     ) -> list[dict]:
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"self": self._corpus_id}
         if category:
             params["category"] = category
         if target:

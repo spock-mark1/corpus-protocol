@@ -24,30 +24,29 @@ export async function GET(request: NextRequest) {
       .from(cppCommerceServices)
       .innerJoin(cppCorpus, eq(cppCommerceServices.corpusId, cppCorpus.id));
 
+    const selfId = searchParams.get("self");
+
     let results = services.map((s) => ({
       ...s,
       price: Number(s.price),
     }));
 
-    // Filter by category if provided
+    // Exclude the requesting corpus's own services
+    if (selfId) {
+      results = results.filter((s) => s.corpusId !== selfId);
+    }
+
+    // Filter by corpus category (exact match against DB category)
     if (category) {
-      const lowerCat = category.toLowerCase();
       results = results.filter(
-        (s) =>
-          s.serviceName.toLowerCase().includes(lowerCat) ||
-          (s.description ?? "").toLowerCase().includes(lowerCat) ||
-          s.corpusCategory.toLowerCase().includes(lowerCat)
+        (s) => s.corpusCategory.toLowerCase() === category.toLowerCase()
       );
     }
 
-    // Filter by target if provided
-    if (target) {
-      const lowerTarget = target.toLowerCase();
-      results = results.filter(
-        (s) =>
-          (s.description ?? "").toLowerCase().includes(lowerTarget) ||
-          s.corpusName.toLowerCase().includes(lowerTarget)
-      );
+    // Shuffle for diversity — agents see different services each cycle
+    for (let i = results.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [results[i], results[j]] = [results[j], results[i]];
     }
 
     return Response.json(results);
