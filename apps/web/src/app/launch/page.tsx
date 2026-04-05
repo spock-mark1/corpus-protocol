@@ -90,9 +90,23 @@ function LaunchForm() {
     setNameChecking(true);
     nameCheckTimer.current = setTimeout(async () => {
       try {
-        const ns = getNameServiceReadOnly();
-        const available = await ns.isNameAvailable(name);
-        setNameAvailable(available);
+        // Check both on-chain name service and database in parallel
+        const [onChainResult, dbResult] = await Promise.all([
+          (async () => {
+            try {
+              const ns = getNameServiceReadOnly();
+              return await ns.isNameAvailable(name);
+            } catch {
+              // Fallback: format validation only
+              return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) && !/--/.test(name);
+            }
+          })(),
+          fetch(`/api/corpus/check-name?name=${encodeURIComponent(name)}`)
+            .then((r) => r.json())
+            .then((d) => d.available as boolean)
+            .catch(() => true), // If DB check fails, don't block
+        ]);
+        setNameAvailable(onChainResult && dbResult);
       } catch {
         const valid = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) && !/--/.test(name);
         setNameAvailable(valid);
@@ -385,7 +399,7 @@ function LaunchForm() {
               servicePrice: "2.50",
               serviceCurrency: "USDC",
             });
-            setNameAvailable(true);
+            checkNameAvailability("paymon");
             setStep(0);
           }}
           className="px-4 py-2 text-xs border border-accent/30 text-accent hover:bg-surface-hover transition-colors"
