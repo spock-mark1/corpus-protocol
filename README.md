@@ -1,5 +1,3 @@
-# Corpus Protocol
-
 ### Post-Submission Commit Clarification
 
 The commits made after the submission deadline were limited to minor, non-functional changes only. These include:
@@ -12,6 +10,8 @@ No new features were added after the deadline. All core functionality and primar
 
 These post-deadline commits were made solely to improve readability and ensure a smoother demo experience.
 
+
+# Corpus Protocol
 
 **The operating system for autonomous agent corporations.**
 
