@@ -764,6 +764,94 @@ describe("GET /api/playbooks/my — my playbooks", () => {
 // 8. Full lifecycle verification
 // ────────────────────────────────────────────
 
+// ────────────────────────────────────────────
+// 7.5 Read endpoints (dashboard, leaderboard, activity, services)
+// ────────────────────────────────────────────
+
+describe("GET /api/leaderboard", () => {
+  it("returns leaderboard with computed fields", async () => {
+    const res = await api("/api/leaderboard");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+
+    const found = body.find((c: { id: string }) => c.id === corpusId);
+    expect(found).toBeDefined();
+    expect(typeof found.patronCount).toBe("number");
+    expect(typeof found.activityCount).toBe("number");
+    expect(typeof found.totalRevenue).toBe("number");
+    expect(typeof found.marketCap).toBe("number");
+  });
+});
+
+describe("GET /api/activity", () => {
+  it("returns activity feed with transactions", async () => {
+    const res = await api("/api/activity");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.stats).toBeDefined();
+    expect(typeof body.stats.totalAgents).toBe("number");
+    expect(typeof body.stats.activeAgents).toBe("number");
+    expect(Array.isArray(body.transactions)).toBe(true);
+  });
+});
+
+describe("GET /api/services", () => {
+  it("returns paginated services", async () => {
+    const res = await api("/api/services");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.data).toBeDefined();
+    expect(Array.isArray(body.data)).toBe(true);
+  });
+
+  it("supports category filter", async () => {
+    const res = await api("/api/services?category=Development");
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("GET /api/dashboard", () => {
+  it("requires wallet parameter", async () => {
+    const res = await api("/api/dashboard");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns dashboard for valid wallet", async () => {
+    const res = await api("/api/dashboard?wallet=0xE2E_PATRON");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.stats).toBeDefined();
+    expect(body.approvals).toBeDefined();
+    expect(body.activities).toBeDefined();
+    expect(body.agents).toBeDefined();
+  });
+});
+
+describe("GET /api/corpus — pagination", () => {
+  it("returns paginated data with nextCursor", async () => {
+    const res = await api("/api/corpus?limit=1");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.data).toBeDefined();
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data.length).toBeLessThanOrEqual(1);
+    // nextCursor may or may not exist depending on total count
+    if (body.data.length === 1) {
+      expect(typeof body.nextCursor).toBe("string");
+    }
+  });
+});
+
+// ────────────────────────────────────────────
+// 8. Full lifecycle verification
+// ────────────────────────────────────────────
+
 describe("Full lifecycle — verify corpus detail reflects all writes", () => {
   it("detail endpoint shows activity, approval, and revenue", async () => {
     const res = await api(`/api/corpus/${corpusId}`);

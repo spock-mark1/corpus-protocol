@@ -114,6 +114,6 @@ export async function POST(
     });
   } catch (err) {
     console.error("Signing error:", err);
-    return Response.json({ error: "Signing failed", details: String(err) }, { status: 500 });
+    return Response.json({ error: "Signing failed" }, { status: 500 });
   }
 }

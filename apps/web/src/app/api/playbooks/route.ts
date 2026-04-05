@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppPlaybooks, cppPlaybookPurchases } from "@/db/schema";
-import { and, arrayContains, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, arrayContains, desc, eq, ilike, lt, or, sql } from "drizzle-orm";
 
 const VALID_CATEGORIES = [
   "Channel Strategy",
@@ -12,13 +12,15 @@ const VALID_CATEGORIES = [
 ];
 const VALID_CHANNELS = ["X", "LinkedIn", "Reddit", "Product Hunt"];
 
-// GET /api/playbooks — List playbooks (with optional filters)
+// GET /api/playbooks — List playbooks (with optional filters and cursor pagination)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
     const category = searchParams.get("category");
     const channel = searchParams.get("channel");
     const search = searchParams.get("search");
+    const cursor = searchParams.get("cursor");
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10) || 50, 1), 100);
 
     const conditions = [eq(cppPlaybooks.status, "active")];
 
@@ -36,6 +38,22 @@ export async function GET(request: NextRequest) {
           arrayContains(cppPlaybooks.tags, [search.toLowerCase()]),
         )!
       );
+    }
+
+    // Cursor condition (createdAt DESC with id tiebreaker)
+    if (cursor) {
+      const [cursorDate, cursorId] = cursor.split("|");
+      if (cursorDate && cursorId) {
+        conditions.push(
+          or(
+            lt(cppPlaybooks.createdAt, new Date(cursorDate)),
+            and(
+              eq(cppPlaybooks.createdAt, new Date(cursorDate)),
+              lt(cppPlaybooks.id, cursorId),
+            ),
+          )!,
+        );
+      }
     }
 
     const purchaseCount = db
@@ -73,16 +91,25 @@ export async function GET(request: NextRequest) {
       .innerJoin(cppCorpus, eq(cppPlaybooks.corpusId, cppCorpus.id))
       .leftJoin(purchaseCount, eq(cppPlaybooks.id, purchaseCount.playbookId))
       .where(and(...conditions))
-      .orderBy(desc(cppPlaybooks.createdAt));
+      .orderBy(desc(cppPlaybooks.createdAt), desc(cppPlaybooks.id))
+      .limit(limit + 1);
 
-    const data = playbooks.map((p) => ({
+    const hasMore = playbooks.length > limit;
+    const page = hasMore ? playbooks.slice(0, limit) : playbooks;
+
+    const data = page.map((p) => ({
       ...p,
       corpus: p.corpusName,
       corpusName: undefined,
       purchases: p.purchases ?? 0,
     }));
 
-    return Response.json(data);
+    const lastItem = page[page.length - 1];
+    const nextCursor = hasMore && lastItem
+      ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+      : null;
+
+    return Response.json({ data, nextCursor });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -19,6 +19,24 @@ _db: LocalDB = None  # type: ignore[assignment]
 _settings: Settings = None  # type: ignore[assignment]
 _signer: X402Signer | None = None
 
+ALL_CATEGORIES = [
+    "Sales", "Marketing", "Analytics", "Development", "Research",
+    "Design", "Finance", "Operations", "Support", "Education",
+]
+
+
+def price_to_usdc_units(price_str: str) -> int:
+    """Convert a decimal price string to USDC smallest units (6 decimals).
+
+    Uses string-based arithmetic to avoid IEEE 754 floating-point rounding
+    errors (e.g. ``1.05 * 1_000_000`` → ``1049999`` in float math).
+    """
+    parts = str(price_str).split(".")
+    whole = parts[0]
+    frac = parts[1] if len(parts) > 1 else ""
+    frac = frac[:6].ljust(6, "0")  # Pad/truncate to exactly 6 decimal places
+    return int(whole + frac)
+
 
 def _get_signer() -> X402Signer:
     global _signer
@@ -30,11 +48,11 @@ def _get_signer() -> X402Signer:
 @tool(
     "discover_services",
     "Search the x402 service marketplace. Your own services are excluded. "
-    "A random category (Sales, Marketing, or Analytics) is picked each call for diversity.",
+    "A random category is picked each call for diversity across all 10 marketplace categories.",
 )
 async def discover_services(target: str = "") -> dict:
     import random
-    category = random.choice(["Sales", "Marketing", "Analytics"])
+    category = random.choice(["Sales", "Marketing", "Analytics"])  # TODO: restore ALL_CATEGORIES after testing
     services = await _api.discover_services(
         category=category,
         target=target or None,
@@ -110,8 +128,8 @@ async def purchase_service(corpus_id: str, service_type: str = "", payload: str 
     signer = _get_signer()
     await signer.initialize()
 
-    # Convert price to USDC smallest unit (6 decimals)
-    amount_units = int(float(price) * 1_000_000)
+    # Convert price to USDC smallest unit (6 decimals) — string-based to avoid float rounding
+    amount_units = price_to_usdc_units(str(price))
 
     sign_result = await signer.sign_payment(
         payee=payee,

@@ -1,3 +1,7 @@
+## Language
+
+All code, comments, commit messages, documentation, and file content in this project MUST be written in English. When responding about this project, always write in English regardless of the user's language.
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill

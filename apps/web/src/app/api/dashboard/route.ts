@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppPatrons } from "@/db/schema";
-import { eq, or, sql } from "drizzle-orm";
+import { eq, or, sql, inArray } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const wallet = req.nextUrl.searchParams.get("wallet");
@@ -19,25 +19,26 @@ export async function GET(req: NextRequest) {
 
   const patronIds = patronCorpusIds.map((p) => p.corpusId);
 
-  // Find all corpuses owned by or patroned by this wallet
-  const allCorpuses = await db.query.cppCorpus.findMany({
+  // Build a WHERE filter: user is owner (wallet/creator/investor/treasury) or patron
+  const ownerCondition = or(
+    eq(sql`lower(${cppCorpus.walletAddress})`, addr),
+    eq(sql`lower(${cppCorpus.creatorAddress})`, addr),
+    eq(sql`lower(${cppCorpus.investorAddress})`, addr),
+    eq(sql`lower(${cppCorpus.treasuryAddress})`, addr),
+  );
+  const whereCondition = patronIds.length > 0
+    ? or(ownerCondition, inArray(cppCorpus.id, patronIds))!
+    : ownerCondition!;
+
+  // Query only the matching corpuses with their relations
+  const corpuses = await db.query.cppCorpus.findMany({
+    where: whereCondition,
     with: {
       approvals: { orderBy: (a, { desc: d }) => [d(a.createdAt)] },
       activities: { orderBy: (a, { desc: d }) => [d(a.createdAt)], limit: 10 },
       revenues: { orderBy: (r, { desc: d }) => [d(r.createdAt)] },
       patrons: true,
     },
-  });
-
-  // Filter: user is owner (wallet/creator/investor/treasury) or patron
-  const corpuses = allCorpuses.filter((c) => {
-    const isOwner =
-      c.walletAddress?.toLowerCase() === addr ||
-      c.creatorAddress?.toLowerCase() === addr ||
-      c.investorAddress?.toLowerCase() === addr ||
-      c.treasuryAddress?.toLowerCase() === addr;
-    const isPatron = patronIds.includes(c.id);
-    return isOwner || isPatron;
   });
 
   // Aggregate data

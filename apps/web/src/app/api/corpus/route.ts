@@ -1,15 +1,18 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { cppCorpus, cppPatrons, cppCommerceServices } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { createAgentWallet } from "@/lib/circle";
+import { createCorpusSchema, parseBody } from "@/lib/schemas";
 
-const VALID_CATEGORIES = ["Marketing", "Development", "Research", "Design", "Finance", "Analytics", "Operations", "Sales", "Support", "Education"];
-
-// GET /api/corpus — List all corpuses
-export async function GET() {
+// GET /api/corpus — List corpuses with cursor-based pagination
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = request.nextUrl;
+    const cursor = searchParams.get("cursor");
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50", 10) || 50, 1), 100);
+
     const patronCount = db
       .select({
         corpusId: cppPatrons.corpusId,
@@ -18,6 +21,24 @@ export async function GET() {
       .from(cppPatrons)
       .groupBy(cppPatrons.corpusId)
       .as("patronCount");
+
+    // Build cursor condition (createdAt DESC with id tiebreaker)
+    const conditions = [];
+    if (cursor) {
+      // Cursor format: "<createdAt ISO>|<id>"
+      const [cursorDate, cursorId] = cursor.split("|");
+      if (cursorDate && cursorId) {
+        conditions.push(
+          or(
+            lt(cppCorpus.createdAt, new Date(cursorDate)),
+            and(
+              eq(cppCorpus.createdAt, new Date(cursorDate)),
+              lt(cppCorpus.id, cursorId),
+            ),
+          )!,
+        );
+      }
+    }
 
     const corpuses = await db
       .select({
@@ -53,14 +74,24 @@ export async function GET() {
       })
       .from(cppCorpus)
       .leftJoin(patronCount, eq(cppCorpus.id, patronCount.corpusId))
-      .orderBy(desc(cppCorpus.createdAt));
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(cppCorpus.createdAt), desc(cppCorpus.id))
+      .limit(limit + 1);
 
-    const data = corpuses.map((c) => ({
+    const hasMore = corpuses.length > limit;
+    const page = hasMore ? corpuses.slice(0, limit) : corpuses;
+
+    const data = page.map((c) => ({
       ...c,
       patrons: c.patrons ?? 0,
     }));
 
-    return Response.json(data);
+    const lastItem = page[page.length - 1];
+    const nextCursor = hasMore && lastItem
+      ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+      : null;
+
+    return Response.json({ data, nextCursor });
   } catch {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -69,13 +100,14 @@ export async function GET() {
 // POST /api/corpus — Create a new Corpus (Genesis)
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsed = await parseBody(request, createCorpusSchema);
+    if (parsed.error) return parsed.error;
 
     const {
       name,
       category,
       description,
-      totalSupply,
+      totalSupply: supply,
       persona,
       targetAudience,
       channels,
@@ -90,45 +122,10 @@ export async function POST(request: NextRequest) {
       minPatronPulse,
       hederaTokenId,
       tokenSymbol,
-    } = body;
-
-    // Required fields
-    if (!name || !category || !description) {
-      return Response.json(
-        { error: "name, category, description are required" },
-        { status: 400 }
-      );
-    }
-
-    if (typeof name !== "string" || name.length > 100) {
-      return Response.json(
-        { error: "name must be a string under 100 characters" },
-        { status: 400 }
-      );
-    }
-
-    if (!VALID_CATEGORIES.includes(category)) {
-      return Response.json(
-        { error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    if (typeof description !== "string" || description.length > 2000) {
-      return Response.json(
-        { error: "description must be a string under 2000 characters" },
-        { status: 400 }
-      );
-    }
-
-    // Validate numeric fields
-    const supply = totalSupply ?? 1000000;
-    if (typeof supply !== "number" || supply <= 0 || supply > 100_000_000) {
-      return Response.json(
-        { error: "totalSupply must be a positive number up to 100,000,000" },
-        { status: 400 }
-      );
-    }
+      serviceName,
+      serviceDescription,
+      servicePrice,
+    } = parsed.data;
 
     // Generate API key for local agent
     const apiKey = `cpk_${randomBytes(24).toString("hex")}`;
@@ -191,29 +188,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Commerce Service if service info provided
-    const { serviceName, serviceDescription, servicePrice } = body;
-
-    if (serviceName !== undefined || servicePrice !== undefined) {
-      if (typeof serviceName !== "string" || serviceName.length === 0 || serviceName.length > 200) {
-        return Response.json(
-          { error: "serviceName must be a non-empty string under 200 characters" },
-          { status: 400 }
-        );
-      }
-      if (typeof servicePrice !== "number" || servicePrice <= 0 || servicePrice > 1_000_000) {
-        return Response.json(
-          { error: "servicePrice must be a positive number up to 1,000,000" },
-          { status: 400 }
-        );
-      }
-      if (serviceDescription !== undefined && (typeof serviceDescription !== "string" || serviceDescription.length > 2000)) {
-        return Response.json(
-          { error: "serviceDescription must be a string under 2000 characters" },
-          { status: 400 }
-        );
-      }
-    }
-
     if (serviceName && servicePrice) {
       const serviceWallet = agentWalletAddress || creatorAddress || walletAddress;
       if (serviceWallet) {

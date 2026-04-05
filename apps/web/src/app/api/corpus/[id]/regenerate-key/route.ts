@@ -3,8 +3,10 @@ import { db } from "@/db";
 import { cppCorpus } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { regenerateKeySchema, parseBody } from "@/lib/schemas";
 
 // POST /api/corpus/:id/regenerate-key — Regenerate API key (invalidates old key)
+// Requires EIP-191 personal_sign proof of wallet ownership.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,12 +14,15 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const body = await request.json();
-    const { walletAddress } = body;
+    const parsed = await parseBody(request, regenerateKeySchema);
+    if (parsed.error) return parsed.error;
 
-    if (!walletAddress) {
+    const { walletAddress, signature, message } = parsed.data;
+
+    // Verify the message contains the corpus ID to prevent replay across corpuses
+    if (!message.includes(id)) {
       return Response.json(
-        { error: "walletAddress is required" },
+        { error: "Signature message must contain the corpus ID" },
         { status: 400 }
       );
     }
@@ -36,6 +41,13 @@ export async function POST(
       corpus.creatorAddress?.toLowerCase() !== walletAddress.toLowerCase()
     ) {
       return Response.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Verify EIP-191 signature proves wallet ownership
+    const { ethers } = await import("ethers");
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+    if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      return Response.json({ error: "Invalid signature" }, { status: 403 });
     }
 
     const newApiKey = `cpk_${randomBytes(24).toString("hex")}`;

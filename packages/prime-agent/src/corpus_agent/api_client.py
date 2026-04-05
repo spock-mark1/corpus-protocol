@@ -184,7 +184,7 @@ class CorpusAPIClient:
         r = await self._client.get("/api/services", params=params)
         if r.status_code == 200:
             data = r.json()
-            return data if isinstance(data, list) else data.get("services", [])
+            return data if isinstance(data, list) else data.get("data", [])
         return []
 
     async def register_service(

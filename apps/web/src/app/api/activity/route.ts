@@ -6,12 +6,20 @@ import {
   cppPlaybooks,
   cppCorpus,
 } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql, count } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [jobs, playbookTrades, allCorpuses, services] = await Promise.all([
+  // Alias for buyer corpus lookup in jobs query
+  const buyerCorpus = alias(cppCorpus, "buyerCorpus");
+
+  // Alias for buyer corpus lookup in playbook purchases
+  const pbBuyerCorpus = alias(cppCorpus, "pbBuyerCorpus");
+
+  const [jobs, playbookTrades, stats] = await Promise.all([
+    // Jobs with seller and buyer names joined directly
     db
       .select({
         id: cppCommerceJobs.id,
@@ -22,10 +30,18 @@ export async function GET() {
         status: cppCommerceJobs.status,
         txHash: cppCommerceJobs.txHash,
         createdAt: cppCommerceJobs.createdAt,
+        sellerName: cppCorpus.name,
+        sellerAgent: cppCorpus.agentName,
+        buyerName: buyerCorpus.name,
+        buyerAgent: buyerCorpus.agentName,
       })
       .from(cppCommerceJobs)
+      .leftJoin(cppCorpus, eq(cppCommerceJobs.corpusId, cppCorpus.id))
+      .leftJoin(buyerCorpus, eq(cppCommerceJobs.requesterCorpusId, buyerCorpus.id))
       .orderBy(desc(cppCommerceJobs.createdAt))
       .limit(100),
+
+    // Playbook purchases with seller corpus name and buyer corpus lookup joined
     db
       .select({
         id: cppPlaybookPurchases.id,
@@ -36,28 +52,35 @@ export async function GET() {
         playbookPrice: cppPlaybooks.price,
         playbookCurrency: cppPlaybooks.currency,
         sellerCorpusId: cppPlaybooks.corpusId,
+        sellerName: cppCorpus.name,
+        sellerAgent: cppCorpus.agentName,
+        buyerName: pbBuyerCorpus.name,
+        buyerAgent: pbBuyerCorpus.agentName,
       })
       .from(cppPlaybookPurchases)
       .innerJoin(cppPlaybooks, eq(cppPlaybookPurchases.playbookId, cppPlaybooks.id))
+      .leftJoin(cppCorpus, eq(cppPlaybooks.corpusId, cppCorpus.id))
+      .leftJoin(
+        pbBuyerCorpus,
+        sql`${pbBuyerCorpus.id} = ${cppPlaybookPurchases.buyerAddress} OR ${pbBuyerCorpus.agentName} = ${cppPlaybookPurchases.buyerAddress}`,
+      )
       .orderBy(desc(cppPlaybookPurchases.createdAt))
       .limit(100),
+
+    // Aggregate stats with COUNT queries instead of loading all rows
     db
       .select({
-        id: cppCorpus.id,
-        name: cppCorpus.name,
-        agentName: cppCorpus.agentName,
-        agentOnline: cppCorpus.agentOnline,
+        totalAgents: count(cppCorpus.id),
+        activeAgents: sql<number>`count(*) filter (where ${cppCorpus.agentOnline} = true)::int`,
       })
-      .from(cppCorpus),
-    db
-      .select({ id: cppCommerceServices.id })
-      .from(cppCommerceServices),
+      .from(cppCorpus)
+      .then((r) => r[0]),
   ]);
 
-  const corpusMap: Record<string, { name: string; agentName: string | null; online: boolean }> = {};
-  for (const c of allCorpuses) {
-    corpusMap[c.id] = { name: c.name, agentName: c.agentName, online: c.agentOnline };
-  }
+  const registeredServiceCount = await db
+    .select({ count: count(cppCommerceServices.id) })
+    .from(cppCommerceServices)
+    .then((r) => r[0]?.count ?? 0);
 
   type Transaction = {
     id: string;
@@ -77,15 +100,13 @@ export async function GET() {
   const transactions: Transaction[] = [];
 
   for (const j of jobs) {
-    const seller = corpusMap[j.sellerCorpusId];
-    const buyer = corpusMap[j.buyerCorpusId];
     transactions.push({
       id: j.id,
       type: "service",
-      sellerName: seller?.name ?? "Unknown",
-      sellerAgent: seller?.agentName ?? null,
-      buyerName: buyer?.name ?? "Unknown",
-      buyerAgent: buyer?.agentName ?? null,
+      sellerName: j.sellerName ?? "Unknown",
+      sellerAgent: j.sellerAgent ?? null,
+      buyerName: j.buyerName ?? "Unknown",
+      buyerAgent: j.buyerAgent ?? null,
       itemName: j.serviceName,
       amount: Number(j.amount),
       currency: "USDC",
@@ -96,17 +117,13 @@ export async function GET() {
   }
 
   for (const p of playbookTrades) {
-    const seller = corpusMap[p.sellerCorpusId];
-    const buyerCorpus = allCorpuses.find(
-      (c) => c.id === p.buyerAddress || c.agentName === p.buyerAddress
-    );
     transactions.push({
       id: p.id,
       type: "playbook",
-      sellerName: seller?.name ?? "Unknown",
-      sellerAgent: seller?.agentName ?? null,
-      buyerName: buyerCorpus?.name ?? `${p.buyerAddress.slice(0, 6)}...${p.buyerAddress.slice(-4)}`,
-      buyerAgent: buyerCorpus?.agentName ?? null,
+      sellerName: p.sellerName ?? "Unknown",
+      sellerAgent: p.sellerAgent ?? null,
+      buyerName: p.buyerName ?? `${p.buyerAddress.slice(0, 6)}...${p.buyerAddress.slice(-4)}`,
+      buyerAgent: p.buyerAgent ?? null,
       itemName: p.playbookTitle,
       amount: Number(p.playbookPrice),
       currency: p.playbookCurrency,
@@ -127,9 +144,9 @@ export async function GET() {
     stats: {
       totalTransactions: jobs.length + playbookTrades.length,
       totalVolume: totalServiceVolume + totalPlaybookVolume,
-      activeAgents: allCorpuses.filter((c) => c.agentOnline).length,
-      totalAgents: allCorpuses.length,
-      registeredServices: services.length,
+      activeAgents: stats?.activeAgents ?? 0,
+      totalAgents: stats?.totalAgents ?? 0,
+      registeredServices: registeredServiceCount,
       playbooksTraded: playbookTrades.length,
     },
     transactions,

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/db";
 import { cppCorpus } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -42,7 +43,11 @@ export async function verifyAgentApiKey(
     };
   }
 
-  if (!corpus.apiKey || corpus.apiKey !== token) {
+  if (
+    !corpus.apiKey ||
+    corpus.apiKey.length !== token.length ||
+    !timingSafeEqual(Buffer.from(corpus.apiKey), Buffer.from(token))
+  ) {
     return {
       ok: false,
       response: Response.json({ error: "Invalid API key" }, { status: 403 }),

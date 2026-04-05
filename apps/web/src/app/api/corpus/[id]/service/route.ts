@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { cppCorpus, cppCommerceServices, cppCommerceJobs } from "@/db/schema";
+import { cppCorpus, cppCommerceServices, cppCommerceJobs, cppRevenues } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyAgentApiKey } from "@/lib/auth";
-import { broadcastTransferWithAuthorization } from "@/lib/circle";
+import { broadcastTransferWithAuthorization, getUsdcBalance } from "@/lib/circle";
 import { fulfillInstant } from "@/lib/fulfillment";
+import { registerServiceSchema, parseBody } from "@/lib/schemas";
 
 // Arc network config (USDC = native gas token)
 const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 5042002);
@@ -94,6 +95,9 @@ export async function POST(
       return Response.json({ error: "Invalid API key" }, { status: 403 });
     }
 
+    // 1b. Read body once (request body can only be consumed once)
+    const requestBody = await request.json().catch(() => ({})) as Record<string, unknown>;
+
     // 2. Validate X-PAYMENT header
     const paymentHeader = request.headers.get("x-payment");
     if (!paymentHeader) {
@@ -138,9 +142,9 @@ export async function POST(
     const signature = payment.signature as string | undefined;
     const nonce = payment.nonce as string | undefined;
 
-    if (!from || !to || !value || !signature) {
+    if (!from || !to || !value || !signature || !nonce) {
       return Response.json(
-        { error: "X-PAYMENT must include: from, to, value, signature" },
+        { error: "X-PAYMENT must include: from, to, value, signature, nonce" },
         { status: 400 }
       );
     }
@@ -148,32 +152,33 @@ export async function POST(
     // 3. Verify payee matches the service/agent wallet
     if (!expectedPayee || to.toLowerCase() !== expectedPayee.toLowerCase()) {
       return Response.json(
-        { error: "Payment 'to' address does not match service wallet", expected: expectedPayee, received: to },
+        { error: "Payment 'to' address does not match service wallet" },
         { status: 400 }
       );
     }
 
-    // 4. Verify amount (USDC 6 decimals)
+    // 4. Verify amount (USDC 6 decimals, string-based to avoid float rounding)
     const paidAmount = BigInt(value);
-    const requiredAmount = BigInt(Math.floor(Number(service.price) * 1_000_000));
+    const priceParts = String(service.price).split(".");
+    const whole = priceParts[0];
+    const frac = (priceParts[1] ?? "").slice(0, 6).padEnd(6, "0");
+    const requiredAmount = BigInt(whole + frac);
     if (paidAmount < requiredAmount) {
       return Response.json(
-        { error: "Insufficient payment amount", required: requiredAmount.toString(), received: value },
+        { error: "Insufficient payment amount" },
         { status: 402 }
       );
     }
 
-    // 5. Replay prevention — check nonce against existing jobs in DB
-    if (nonce) {
-      const existing = await db
-        .select({ id: cppCommerceJobs.id })
-        .from(cppCommerceJobs)
-        .where(eq(cppCommerceJobs.paymentSig, signature as string))
-        .limit(1)
-        .then((r) => r[0] ?? null);
-      if (existing) {
-        return Response.json({ error: "Payment nonce already used (replay detected)" }, { status: 409 });
-      }
+    // 5. Replay prevention — check signature against existing jobs in DB
+    const existingJob = await db
+      .select({ id: cppCommerceJobs.id })
+      .from(cppCommerceJobs)
+      .where(eq(cppCommerceJobs.paymentSig, signature))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    if (existingJob) {
+      return Response.json({ error: "Payment signature already used (replay detected)" }, { status: 409 });
     }
 
     // 6. EIP-3009 signature verification
@@ -195,16 +200,17 @@ export async function POST(
       ],
     };
 
-    try {
-      const now = Math.floor(Date.now() / 1000);
-      const validAfter = Number(payment.validAfter ?? 0);
-      const validBefore = Number(payment.validBefore ?? now + 300);
+    const paymentNow = Math.floor(Date.now() / 1000);
+    const validAfter = Number(payment.validAfter ?? 0);
+    const validBefore = Number(payment.validBefore ?? paymentNow + 300);
 
-      if (now < validAfter) {
-        return Response.json({ error: "Payment signature is not yet valid", validAfter, now }, { status: 403 });
+    try {
+
+      if (paymentNow < validAfter) {
+        return Response.json({ error: "Payment signature is not yet valid" }, { status: 403 });
       }
-      if (now > validBefore) {
-        return Response.json({ error: "Payment signature has expired", validBefore, now }, { status: 403 });
+      if (paymentNow > validBefore) {
+        return Response.json({ error: "Payment signature has expired" }, { status: 403 });
       }
 
       const sigValue = {
@@ -213,30 +219,53 @@ export async function POST(
         value,
         validAfter,
         validBefore,
-        nonce: nonce ?? ethers.ZeroHash,
+        nonce,
       };
       const recovered = ethers.verifyTypedData(EIP3009_DOMAIN, EIP3009_TYPES, sigValue, signature);
       if (recovered.toLowerCase() !== from.toLowerCase()) {
         return Response.json(
-          { error: "Invalid payment signature: signer mismatch", expected: from, recovered },
+          { error: "Invalid payment signature: signer mismatch" },
           { status: 403 }
         );
       }
     } catch (sigErr) {
-      return Response.json({ error: "Invalid payment signature", details: String(sigErr) }, { status: 403 });
+      console.error("Payment signature verification failed:", sigErr);
+      return Response.json({ error: "Invalid payment signature" }, { status: 403 });
     }
 
-    // 7. Broadcast EIP-3009 transferWithAuthorization to Arc
-    let txHash: string | null = null;
+    // 7. Recheck payer balance before fulfillment
     try {
-      const now = Math.floor(Date.now() / 1000);
+      const payerBalance = await getUsdcBalance(from);
+      if (payerBalance < paidAmount) {
+        return Response.json(
+          { error: "Insufficient USDC balance" },
+          { status: 402 }
+        );
+      }
+    } catch {
+      return Response.json(
+        { error: "Unable to verify payer balance" },
+        { status: 503 }
+      );
+    }
+
+    // 8. Broadcast EIP-3009 transferWithAuthorization to Arc (mandatory)
+    if (!process.env.ARC_RELAYER_PRIVATE_KEY) {
+      return Response.json(
+        { error: "Payment infrastructure not configured" },
+        { status: 503 }
+      );
+    }
+
+    let txHash: string;
+    try {
       const result = await broadcastTransferWithAuthorization({
         from,
         to,
         value,
-        validAfter: Number(payment.validAfter ?? 0),
-        validBefore: Number(payment.validBefore ?? now + 300),
-        nonce: nonce ?? ethers.ZeroHash,
+        validAfter,
+        validBefore,
+        nonce,
         signature,
         chainId: ARC_CHAIN_ID,
         tokenAddress: USDC_ADDRESS,
@@ -244,18 +273,14 @@ export async function POST(
       txHash = result.txHash;
     } catch (broadcastErr) {
       console.error("Arc broadcast failed:", broadcastErr);
-      // If ARC_RELAYER_PRIVATE_KEY is not set, proceed without broadcast (testnet/demo mode)
-      if (process.env.ARC_RELAYER_PRIVATE_KEY) {
-        return Response.json(
-          { error: "On-chain payment broadcast failed", details: String(broadcastErr) },
-          { status: 502 }
-        );
-      }
+      return Response.json(
+        { error: "On-chain payment broadcast failed" },
+        { status: 502 }
+      );
     }
 
-    // 8. Create commerce job + fulfill
-    const body = await request.json().catch(() => ({}));
-    const payload = body.payload ?? body;
+    // 9. Create commerce job + fulfill
+    const payload = (requestBody.payload ?? requestBody) as Record<string, unknown>;
 
     if (service.fulfillmentMode === "instant") {
       // Instant mode: server calls external API and returns result synchronously
@@ -263,8 +288,9 @@ export async function POST(
       try {
         result = await fulfillInstant(service.serviceName, payload ?? {});
       } catch (fulfillErr) {
+        console.error("Service fulfillment failed:", fulfillErr);
         return Response.json(
-          { error: "Service fulfillment failed", details: String(fulfillErr) },
+          { error: "Service fulfillment failed" },
           { status: 502 }
         );
       }
@@ -277,12 +303,21 @@ export async function POST(
           serviceName: service.serviceName,
           payload: payload ?? undefined,
           result,
-          paymentSig: signature ?? paymentHeader,
+          paymentSig: signature,
           txHash,
           amount: service.price,
           status: "completed",
         })
         .returning();
+
+      // Record revenue for the service provider
+      await db.insert(cppRevenues).values({
+        corpusId: id,
+        amount: service.price,
+        currency: service.currency ?? "USDC",
+        source: "commerce",
+        txHash,
+      });
 
       return Response.json(
         { id: job.id, jobId: job.id, status: "completed", result, txHash },
@@ -291,6 +326,7 @@ export async function POST(
     }
 
     // Async mode: create pending job for agent to fulfill via polling
+    // Revenue is recorded when the job is fulfilled, not on creation
     const [job] = await db
       .insert(cppCommerceJobs)
       .values({
@@ -298,7 +334,7 @@ export async function POST(
         requesterCorpusId: requester.id,
         serviceName: service.serviceName,
         payload: payload ?? undefined,
-        paymentSig: signature ?? paymentHeader,
+        paymentSig: signature,
         txHash,
         amount: service.price,
         status: "pending",
@@ -309,7 +345,12 @@ export async function POST(
       { id: job.id, jobId: job.id, status: "pending", txHash },
       { status: 201 }
     );
-  } catch {
+  } catch (err: unknown) {
+    // Catch unique constraint violation on paymentSig (replay race condition)
+    const e = err as Record<string, unknown>;
+    if (e?.code === "23505" && String(e?.constraint ?? "").includes("paymentSig")) {
+      return Response.json({ error: "Payment signature already used (replay detected)" }, { status: 409 });
+    }
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -325,22 +366,10 @@ export async function PUT(
     const auth = await verifyAgentApiKey(request, id);
     if (!auth.ok) return auth.response;
 
-    const body = await request.json();
-    const { serviceName, description, price, walletAddress, chains, fulfillmentMode } = body;
+    const parsed = await parseBody(request, registerServiceSchema);
+    if (parsed.error) return parsed.error;
 
-    if (!serviceName || price == null) {
-      return Response.json(
-        { error: "serviceName and price are required" },
-        { status: 400 }
-      );
-    }
-
-    if (typeof price !== "number" || price <= 0) {
-      return Response.json(
-        { error: "price must be a positive number" },
-        { status: 400 }
-      );
-    }
+    const { serviceName, description, price, walletAddress, chains, fulfillmentMode } = parsed.data;
 
     // Get agent wallet as fallback for walletAddress
     const corpus = await db

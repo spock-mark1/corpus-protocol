@@ -86,6 +86,7 @@ export async function POST(
       created: true,
     }, { status: 201 });
   } catch (err) {
-    return Response.json({ error: "Wallet creation failed", details: String(err) }, { status: 500 });
+    console.error("Wallet creation failed:", err);
+    return Response.json({ error: "Wallet creation failed" }, { status: 500 });
   }
 }

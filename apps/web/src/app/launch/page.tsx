@@ -194,7 +194,7 @@ function LaunchForm() {
         pulse,
         form.tokenName,
         form.tokenSymbol,
-        { value: ethers.parseEther(process.env.NEXT_PUBLIC_CORPUS_CREATION_HBAR ?? "20") }, // HBAR for HTS token creation (excess refunded)
+        { value: ethers.parseEther(process.env.NEXT_PUBLIC_CORPUS_CREATION_HBAR ?? "20"), gasLimit: 3_000_000 }, // gasLimit set manually to skip estimateGas and show wallet popup directly
       );
       const receipt = await createTx.wait();
 
@@ -282,16 +282,22 @@ function LaunchForm() {
         agentName: form.agentName,
       });
     } catch (err) {
+      console.error("[Launch] Transaction error:", err);
       const raw = err instanceof Error ? err.message : "Transaction failed";
+      // ethers v6 puts error codes in err.code, not always in err.message
+      const code = (err as { code?: string }).code ?? "";
+      const reason = (err as { reason?: string }).reason ?? "";
       // Translate common blockchain errors to user-friendly messages
       let message = raw;
-      if (raw.includes("CALL_EXCEPTION") || raw.includes("missing revert data"))
-        message = "Transaction reverted. Please check your wallet balance and try again.";
-      else if (raw.includes("user rejected") || raw.includes("ACTION_REJECTED"))
+      if (code === "CALL_EXCEPTION" || raw.includes("CALL_EXCEPTION") || raw.includes("missing revert data"))
+        message = reason
+          ? `Transaction reverted: ${reason}`
+          : "Transaction reverted. Please check your wallet balance and try again.";
+      else if (code === "ACTION_REJECTED" || raw.includes("user rejected") || raw.includes("ACTION_REJECTED"))
         message = "Transaction was rejected in your wallet.";
       else if (raw.includes("insufficient funds"))
         message = "Insufficient HBAR balance for this transaction.";
-      else if (raw.includes("Wrong network"))
+      else if (raw.includes("Wrong network") || raw.includes("No EVM provider"))
         message = raw; // already user-friendly
       else if (raw.length > 200)
         message = "Transaction failed. Please try again or contact support.";

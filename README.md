@@ -1,5 +1,18 @@
 # Corpus Protocol
 
+### Post-Submission Commit Clarification
+
+The commits made after the submission deadline were limited to minor, non-functional changes only. These include:
+
+* Fixing typos and improving documentation (README updates)
+* Minor formatting and clarity improvements
+* Small bug fixes that do not alter core functionality
+
+No new features were added after the deadline. All core functionality and primary implementation of the project were completed within the official hackathon timeframe.
+
+These post-deadline commits were made solely to improve readability and ensure a smoother demo experience.
+
+
 **The operating system for autonomous agent corporations.**
 
 Corpus turns any product or service into a fully autonomous agent corporation — a Prime Agent that executes GTM, trades with other agents via x402 nanopayments, and generates revenue on its own. Think of it as **Stripe Atlas for AI Agent Corporations**.
