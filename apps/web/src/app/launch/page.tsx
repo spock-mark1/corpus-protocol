@@ -15,6 +15,7 @@ import { BrowserProvider, ethers } from "ethers";
 
 const STEPS = [
   "Product",
+  "Patron",
   "Pulse",
   "Kernel",
   "Agent",
@@ -99,7 +100,9 @@ function LaunchForm() {
     switch (step) {
       case 0:
         return form.productName && form.productDesc;
-      case 1: {
+      case 1: // Patron — read-only, always passable
+        return true;
+      case 2: {
         const sym = form.tokenSymbol.trim();
         const supply = Number(form.totalSupply);
         const price = Number(form.initialPrice);
@@ -111,9 +114,9 @@ function LaunchForm() {
           price > 0 && price <= 1_000_000
         );
       }
-      case 2:
-        return form.approvalThreshold && form.gtmBudget;
       case 3:
+        return form.approvalThreshold && form.gtmBudget;
+      case 4:
         return form.persona && form.targetAudience && form.channels.length > 0
           && form.agentName.length >= 3 && nameAvailable === true;
       default:
@@ -331,9 +334,41 @@ function LaunchForm() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <div className="text-xs text-muted mb-2">[CORPUS GENESIS]</div>
-        <h1 className="text-2xl font-bold text-accent">Launch your Corpus</h1>
+      <div className="mb-8 flex items-end justify-between">
+        <div>
+          <div className="text-xs text-muted mb-2">[CORPUS GENESIS]</div>
+          <h1 className="text-2xl font-bold text-accent">Launch your Corpus</h1>
+        </div>
+        <button
+          onClick={() => {
+            setForm({
+              productName: "Paymon",
+              productDesc: "AI-powered payment agent that automates invoicing, subscription billing, and cross-border settlements. Integrates with major payment rails and provides real-time treasury analytics for Web3 businesses.",
+              category: "finance",
+              tokenName: "Paymon Pulse",
+              tokenSymbol: "PAYMON",
+              totalSupply: "1000000",
+              initialPrice: "0.50",
+              approvalThreshold: "100",
+              gtmBudget: "500",
+              persona: "A sharp, data-driven fintech strategist who speaks with authority on payments infrastructure. Combines deep technical knowledge with clear, actionable insights. Always backs claims with numbers.",
+              targetAudience: "Web3 founders, CFOs, and treasury managers who need automated payment operations and real-time financial visibility.",
+              tone: "professional",
+              creatorWallet: "",
+              channels: ["X (Twitter)", "LinkedIn"],
+              agentName: "paymon",
+              serviceName: "Payment Automation",
+              serviceDescription: "Automates invoice generation, payment routing, and settlement reconciliation. Send a payment request and receive a fully processed transaction with compliance checks.",
+              servicePrice: "2.50",
+              serviceCurrency: "USDC",
+            });
+            setNameAvailable(true);
+            setStep(0);
+          }}
+          className="px-4 py-2 text-xs border border-accent/30 text-accent hover:bg-surface-hover transition-colors"
+        >
+          Demo: Paymon
+        </button>
       </div>
 
       {/* Step indicator */}
@@ -410,6 +445,32 @@ function LaunchForm() {
 
         {step === 1 && (
           <div className="space-y-6">
+            <h2 className="text-lg font-bold text-accent mb-1">Patron Configuration</h2>
+            <p className="text-sm text-muted mb-6">
+              The Creator is your wallet address. It is permanently linked to this Corpus and cannot be changed.
+            </p>
+            <div>
+              <label className="block text-xs text-muted mb-2">Creator Address</label>
+              <div className="w-full bg-background border border-border px-4 py-2.5 text-sm text-foreground/70 font-mono select-all">
+                {form.creatorWallet || address || "—"}
+              </div>
+              <p className="text-xs text-muted mt-1">This wallet will be registered as the Corpus Creator on-chain.</p>
+            </div>
+            <div className="p-4 border border-border bg-background">
+              <div className="text-xs text-accent mb-2">[REVENUE MODEL]</div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted">Agent Treasury</span>
+                  <span className="text-foreground font-medium">100%</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted mt-3">All revenue flows to the Agent Treasury controlled by the Creator.</p>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Pulse Configuration</h2>
             <p className="text-sm text-muted mb-6">
               Configure your Corpus&apos;s ownership token on Hedera.
@@ -430,7 +491,7 @@ function LaunchForm() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Kernel Policy</h2>
             <p className="text-sm text-muted mb-6">
@@ -441,7 +502,7 @@ function LaunchForm() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Prime Agent Setup</h2>
             <p className="text-sm text-muted mb-6">
@@ -518,7 +579,7 @@ function LaunchForm() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-accent mb-1">Review & Deploy</h2>
             <p className="text-sm text-muted mb-6">
@@ -592,7 +653,7 @@ function LaunchForm() {
         >
           Back
         </button>
-        {step < 4 ? (
+        {step < 5 ? (
           <button
             onClick={() => setStep(step + 1)}
             disabled={!canNext()}
