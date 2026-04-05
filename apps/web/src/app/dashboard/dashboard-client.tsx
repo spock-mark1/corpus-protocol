@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { WalletGate, useWallet } from "@/components/wallet-gate";
 import { WorldIdVerify, WORLD_ACTIONS } from "@/components/world-id-verify";
 
-interface Props {
+interface DashboardData {
   stats: {
     totalValue: string;
     activeCorpus: number;
@@ -51,6 +51,7 @@ interface Props {
     totalSupply: number;
     pulsePrice: number;
     apiKeyMasked: string | null;
+    apiKeyRaw: string | null;
   }[];
 }
 
@@ -72,61 +73,80 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
-export function DashboardClient(props: Props) {
+export function DashboardClient() {
   return (
     <WalletGate
       title="Connect Wallet to Access Dashboard"
       description="Your patron dashboard shows your portfolio, pending approvals, and agent activity. Connect your wallet to view your Corpus holdings."
     >
-      <DashboardContent {...props} />
+      <DashboardLoader />
     </WalletGate>
   );
 }
 
-function ApiKeyCell({ corpusId, masked }: { corpusId: string; masked: string | null }) {
+function DashboardLoader() {
   const { address } = useWallet();
-  const [display, setDisplay] = useState(masked);
-  const [regenerating, setRegenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  async function handleRegenerate() {
+  const fetchData = useCallback(async () => {
     if (!address) return;
-    if (!confirm("Regenerate API key? The current key will be invalidated immediately.")) return;
-    setRegenerating(true);
+    setLoading(true);
     try {
-      const res = await fetch(`/api/corpus/${corpusId}/regenerate-key`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address }),
-      });
+      const res = await fetch(`/api/dashboard?wallet=${encodeURIComponent(address)}`);
       if (res.ok) {
-        const { apiKey } = await res.json();
-        setDisplay(apiKey);
-        navigator.clipboard.writeText(apiKey);
-        setCopied(true);
-        setTimeout(() => {
-          setDisplay(`${apiKey.slice(0, 8)}${"*".repeat(apiKey.length - 12)}${apiKey.slice(-4)}`);
-          setCopied(false);
-        }, 30_000);
+        setData(await res.json());
       }
     } finally {
-      setRegenerating(false);
+      setLoading(false);
     }
+  }, [address]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-10">
+          <h1 className="text-accent text-lg font-bold tracking-wider mb-1">DASHBOARD</h1>
+          <p className="text-muted text-sm">loading your agents&hellip;</p>
+        </div>
+      </div>
+    );
   }
 
+  if (!data) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-10">
+          <h1 className="text-accent text-lg font-bold tracking-wider mb-1">DASHBOARD</h1>
+          <p className="text-muted text-sm">Failed to load dashboard data.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <DashboardContent {...data} onRefresh={fetchData} />;
+}
+
+function ApiKeyCell({ masked, raw }: { corpusId: string; masked: string | null; raw: string | null }) {
+  const [copied, setCopied] = useState(false);
+
   function handleCopy() {
-    if (display) {
-      navigator.clipboard.writeText(display);
+    if (raw) {
+      navigator.clipboard.writeText(raw);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   }
 
-  if (!display) return <span className="text-muted">—</span>;
+  if (!masked) return <span className="text-muted">—</span>;
 
   return (
     <div className="flex items-center gap-2">
-      <code className="text-foreground text-[11px] bg-background px-1.5 py-0.5 break-all">{display}</code>
+      <code className="text-foreground text-[11px] bg-background px-1.5 py-0.5 break-all">{masked}</code>
       <button
         onClick={handleCopy}
         className="text-muted hover:text-accent text-[10px] shrink-0"
@@ -134,19 +154,11 @@ function ApiKeyCell({ corpusId, masked }: { corpusId: string; masked: string | n
       >
         {copied ? "COPIED" : "COPY"}
       </button>
-      <button
-        onClick={handleRegenerate}
-        disabled={regenerating}
-        className="text-muted hover:text-yellow-500 text-[10px] shrink-0 disabled:opacity-50"
-        title="Regenerate key (invalidates current key)"
-      >
-        {regenerating ? "..." : "REGENERATE"}
-      </button>
     </div>
   );
 }
 
-function DashboardContent({ stats, approvals: initialApprovals, activities, agents, revenueStreams, corpusManagement }: Props) {
+function DashboardContent({ stats, approvals: initialApprovals, activities, agents, revenueStreams, corpusManagement, onRefresh }: DashboardData & { onRefresh: () => void }) {
   const [approvals, setApprovals] = useState(initialApprovals);
   const { address } = useWallet();
 
@@ -160,6 +172,8 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
       setApprovals((prev) => prev.filter((a) => a.id !== id));
     }
   }
+
+  const hasNoData = agents.length === 0 && corpusManagement.length === 0;
 
   const PORTFOLIO_STATS = [
     { label: "Total Value", value: stats.totalValue },
@@ -175,257 +189,269 @@ function DashboardContent({ stats, approvals: initialApprovals, activities, agen
         <p className="text-muted text-sm">patron control panel &mdash; portfolio overview, approvals, activity</p>
       </div>
 
-      {/* Portfolio Overview */}
-      <section className="mb-10">
-        <h2 className="text-sm text-muted mb-4 tracking-wide">// PORTFOLIO OVERVIEW</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {PORTFOLIO_STATS.map((stat) => (
-            <div key={stat.label} className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors">
-              <p className="text-muted text-sm mb-2 uppercase tracking-wider">{stat.label}</p>
-              <p className="text-accent text-2xl font-bold">{stat.value}</p>
-            </div>
-          ))}
+      {hasNoData ? (
+        <div className="bg-surface border border-border p-10 text-center">
+          <p className="text-muted text-sm mb-2">No agents found for your wallet.</p>
+          <p className="text-muted text-xs">Create or join a Corpus to see your dashboard.</p>
         </div>
-      </section>
+      ) : (
+        <>
+          {/* Portfolio Overview */}
+          <section className="mb-10">
+            <h2 className="text-sm text-muted mb-4 tracking-wide">// PORTFOLIO OVERVIEW</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {PORTFOLIO_STATS.map((stat) => (
+                <div key={stat.label} className="bg-surface border border-border p-5 hover:bg-surface-hover transition-colors">
+                  <p className="text-muted text-sm mb-2 uppercase tracking-wider">{stat.label}</p>
+                  <p className="text-accent text-2xl font-bold">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        {/* Approval Queue */}
-        <section className="lg:col-span-2">
-          <h2 className="text-sm text-muted mb-4 tracking-wide">// APPROVAL QUEUE</h2>
-          <div className="bg-surface border border-border divide-y divide-border">
-            {approvals.length === 0 && (
-              <div className="p-6 text-muted text-sm text-center">No pending approvals.</div>
-            )}
-            {approvals.map((item) => (
-              <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TypeBadge type={item.type} />
-                      <span className="text-xs text-muted">{item.corpusName}</span>
-                      {item.amount && <span className="text-xs text-accent">{item.amount}</span>}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            {/* Approval Queue */}
+            <section className="lg:col-span-2">
+              <h2 className="text-sm text-muted mb-4 tracking-wide">// APPROVAL QUEUE</h2>
+              <div className="bg-surface border border-border divide-y divide-border">
+                {approvals.length === 0 && (
+                  <div className="p-6 text-muted text-sm text-center">No pending approvals.</div>
+                )}
+                {approvals.map((item) => (
+                  <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <TypeBadge type={item.type} />
+                          <span className="text-xs text-muted">{item.corpusName}</span>
+                          {item.amount && <span className="text-xs text-accent">{item.amount}</span>}
+                        </div>
+                        <p className="text-sm text-foreground truncate">{item.title}</p>
+                        {item.description && (
+                          <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <WorldIdVerify
+                          action={WORLD_ACTIONS.approve}
+                          signal={address ?? undefined}
+                          onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
+                        >
+                          {({ verify, loading: verifying }) => (
+                            <button
+                              onClick={verify}
+                              disabled={verifying}
+                              className="border border-green-800 text-green-500 px-3 py-1.5 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
+                            >
+                              {verifying ? "..." : "APPROVE"}
+                            </button>
+                          )}
+                        </WorldIdVerify>
+                        <WorldIdVerify
+                          action={WORLD_ACTIONS.approve}
+                          signal={address ?? undefined}
+                          onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
+                        >
+                          {({ verify, loading: verifying }) => (
+                            <button
+                              onClick={verify}
+                              disabled={verifying}
+                              className="border border-red-900 text-red-500 px-3 py-1.5 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
+                            >
+                              {verifying ? "..." : "REJECT"}
+                            </button>
+                          )}
+                        </WorldIdVerify>
+                      </div>
                     </div>
-                    <p className="text-sm text-foreground truncate">{item.title}</p>
-                    {item.description && (
-                      <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Agent Status */}
+            <section>
+              <h2 className="text-sm text-muted mb-4 tracking-wide">// AGENT STATUS</h2>
+              <div className="bg-surface border border-border divide-y divide-border">
+                {agents.length === 0 && (
+                  <div className="p-6 text-muted text-sm text-center">No agents.</div>
+                )}
+                {agents.map((agent) => (
+                  <div key={agent.name} className="p-4 flex items-center justify-between hover:bg-surface-hover transition-colors">
+                    <div>
+                      <p className="text-sm text-foreground">{agent.name}</p>
+                      <p className="text-xs text-muted mt-0.5">last: {agent.lastActive}</p>
+                    </div>
+                    <StatusBadge status={agent.status} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Revenue Stream */}
+          <section className="mb-10">
+            <h2 className="text-sm text-muted mb-4 tracking-wide">// REVENUE STREAM</h2>
+            {revenueStreams.length === 0 ? (
+              <div className="bg-surface border border-border p-6 text-muted text-sm text-center">No revenue data yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {revenueStreams.map((rs) => (
+                  <div key={rs.corpusId} className="bg-surface border border-border p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-accent">{rs.corpusName}</h3>
+                      <span className="text-sm text-foreground font-bold">${rs.totalRevenue.toFixed(2)}</span>
+                    </div>
+                    <div className="mb-4 px-3 py-2 bg-background border border-border text-xs text-muted">
+                      100% Agent Treasury &mdash; revenue funds operations &amp; Pulse buyback
+                    </div>
+                    <div className="flex gap-3 mb-4">
+                      {Object.entries(rs.bySource).map(([source, amount]) => (
+                        <span key={source} className="text-xs text-muted">
+                          {source}: <span className="text-foreground">${amount.toFixed(2)}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {rs.recentTx.length > 0 && (
+                      <div className="border-t border-border pt-3 space-y-2">
+                        {rs.recentTx.map((tx, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted">{new Date(tx.date).toLocaleDateString()}</span>
+                              <span className="text-muted">[{tx.source.toUpperCase()}]</span>
+                            </div>
+                            <span className="text-foreground">+${tx.amount.toFixed(2)} {tx.currency}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <WorldIdVerify
-                      action={WORLD_ACTIONS.approve}
-                      signal={address ?? undefined}
-                      onSuccess={(proof) => handleDecision(item.id, item.corpusId, "approved", proof)}
-                    >
-                      {({ verify, loading: verifying }) => (
-                        <button
-                          onClick={verify}
-                          disabled={verifying}
-                          className="border border-green-800 text-green-500 px-3 py-1.5 text-xs hover:bg-green-950 transition-colors disabled:opacity-50"
-                        >
-                          {verifying ? "..." : "APPROVE"}
-                        </button>
-                      )}
-                    </WorldIdVerify>
-                    <WorldIdVerify
-                      action={WORLD_ACTIONS.approve}
-                      signal={address ?? undefined}
-                      onSuccess={(proof) => handleDecision(item.id, item.corpusId, "rejected", proof)}
-                    >
-                      {({ verify, loading: verifying }) => (
-                        <button
-                          onClick={verify}
-                          disabled={verifying}
-                          className="border border-red-900 text-red-500 px-3 py-1.5 text-xs hover:bg-red-950 transition-colors disabled:opacity-50"
-                        >
-                          {verifying ? "..." : "REJECT"}
-                        </button>
-                      )}
-                    </WorldIdVerify>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* On-chain Status */}
+          <section className="mb-10">
+            <h2 className="text-sm text-muted mb-4 tracking-wide">// ON-CHAIN STATUS</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {corpusManagement.map((c) => (
+                <div key={c.id} className="bg-surface border border-border p-5">
+                  <h3 className="text-sm font-bold text-accent mb-3">{c.name}</h3>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted">Token ID</span>
+                      <span className="text-foreground font-mono">{c.hederaTokenId || "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted">Supply</span>
+                      <span className="text-foreground">{c.totalSupply.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted">Pulse Price</span>
+                      <span className="text-accent">${c.pulsePrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted">Revenue Model</span>
+                      <span className="text-foreground">Agent Treasury</span>
+                    </div>
+                    {c.hederaTokenId && (
+                      <a
+                        href={`https://hashscan.io/testnet/token/${c.hederaTokenId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center border border-border py-1.5 text-muted hover:text-accent hover:border-accent transition-colors mt-2"
+                      >
+                        View on HashScan &rarr;
+                      </a>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
 
-        {/* Agent Status */}
-        <section>
-          <h2 className="text-sm text-muted mb-4 tracking-wide">// AGENT STATUS</h2>
-          <div className="bg-surface border border-border divide-y divide-border">
-            {agents.map((agent) => (
-              <div key={agent.name} className="p-4 flex items-center justify-between hover:bg-surface-hover transition-colors">
-                <div>
-                  <p className="text-sm text-foreground">{agent.name}</p>
-                  <p className="text-xs text-muted mt-0.5">last: {agent.lastActive}</p>
-                </div>
-                <StatusBadge status={agent.status} />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {/* Revenue Stream */}
-      <section className="mb-10">
-        <h2 className="text-sm text-muted mb-4 tracking-wide">// REVENUE STREAM</h2>
-        {revenueStreams.length === 0 ? (
-          <div className="bg-surface border border-border p-6 text-muted text-sm text-center">No revenue data yet.</div>
-        ) : (
-          <div className="space-y-4">
-            {revenueStreams.map((rs) => (
-              <div key={rs.corpusId} className="bg-surface border border-border p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-accent">{rs.corpusName}</h3>
-                  <span className="text-sm text-foreground font-bold">${rs.totalRevenue.toFixed(2)}</span>
-                </div>
-                {/* Agent Treasury model */}
-                <div className="mb-4 px-3 py-2 bg-background border border-border text-xs text-muted">
-                  100% Agent Treasury &mdash; revenue funds operations &amp; Pulse buyback
-                </div>
-                {/* Source breakdown */}
-                <div className="flex gap-3 mb-4">
-                  {Object.entries(rs.bySource).map(([source, amount]) => (
-                    <span key={source} className="text-xs text-muted">
-                      {source}: <span className="text-foreground">${amount.toFixed(2)}</span>
-                    </span>
-                  ))}
-                </div>
-                {/* Recent transactions */}
-                {rs.recentTx.length > 0 && (
-                  <div className="border-t border-border pt-3 space-y-2">
-                    {rs.recentTx.map((tx, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted">{new Date(tx.date).toLocaleDateString()}</span>
-                          <span className="text-muted">[{tx.source.toUpperCase()}]</span>
-                        </div>
-                        <span className="text-foreground">+${tx.amount.toFixed(2)} {tx.currency}</span>
+          {/* Corpus Management */}
+          <section className="mb-10">
+            <h2 className="text-sm text-muted mb-4 tracking-wide">// CORPUS MANAGEMENT</h2>
+            <div className="bg-surface border border-border divide-y divide-border">
+              {corpusManagement.map((c) => (
+                <div key={c.id} className="p-5 hover:bg-surface-hover transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-bold text-foreground">{c.name}</h3>
+                      <span className={`text-xs ${c.status === "Active" ? "text-green-400" : "text-muted"}`}>
+                        [{c.status.toUpperCase()}]
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="text-muted">Approval Threshold</span>
+                      <p className="text-foreground mt-0.5">&gt; ${c.approvalThreshold} USDC</p>
+                    </div>
+                    <div>
+                      <span className="text-muted">GTM Budget</span>
+                      <p className="text-foreground mt-0.5">${c.gtmBudget}/mo</p>
+                    </div>
+                    <div>
+                      <span className="text-muted">Channels</span>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {c.channels.map((ch) => (
+                          <span key={ch} className="border border-border px-1.5 py-0.5 text-foreground">{ch}</span>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                    <div>
+                      <span className="text-muted">Token</span>
+                      <p className="text-foreground mt-0.5 font-mono">{c.hederaTokenId || "—"}</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* On-chain Status */}
-      <section className="mb-10">
-        <h2 className="text-sm text-muted mb-4 tracking-wide">// ON-CHAIN STATUS</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {corpusManagement.map((c) => (
-            <div key={c.id} className="bg-surface border border-border p-5">
-              <h3 className="text-sm font-bold text-accent mb-3">{c.name}</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted">Token ID</span>
-                  <span className="text-foreground font-mono">{c.hederaTokenId || "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">Supply</span>
-                  <span className="text-foreground">{c.totalSupply.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">Pulse Price</span>
-                  <span className="text-accent">${c.pulsePrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">Revenue Model</span>
-                  <span className="text-foreground">Agent Treasury</span>
-                </div>
-                {c.hederaTokenId && (
-                  <a
-                    href={`https://hashscan.io/testnet/token/${c.hederaTokenId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-center border border-border py-1.5 text-muted hover:text-accent hover:border-accent transition-colors mt-2"
-                  >
-                    View on HashScan &rarr;
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Corpus Management */}
-      <section className="mb-10">
-        <h2 className="text-sm text-muted mb-4 tracking-wide">// CORPUS MANAGEMENT</h2>
-        <div className="bg-surface border border-border divide-y divide-border">
-          {corpusManagement.map((c) => (
-            <div key={c.id} className="p-5 hover:bg-surface-hover transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-sm font-bold text-foreground">{c.name}</h3>
-                  <span className={`text-xs ${c.status === "Active" ? "text-green-400" : "text-muted"}`}>
-                    [{c.status.toUpperCase()}]
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                <div>
-                  <span className="text-muted">Approval Threshold</span>
-                  <p className="text-foreground mt-0.5">&gt; ${c.approvalThreshold} USDC</p>
-                </div>
-                <div>
-                  <span className="text-muted">GTM Budget</span>
-                  <p className="text-foreground mt-0.5">${c.gtmBudget}/mo</p>
-                </div>
-                <div>
-                  <span className="text-muted">Channels</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    {c.channels.map((ch) => (
-                      <span key={ch} className="border border-border px-1.5 py-0.5 text-foreground">{ch}</span>
-                    ))}
+                  <div className="mt-3 pt-3 border-t border-border text-xs">
+                    <span className="text-muted">Agent API Key</span>
+                    <div className="mt-1">
+                      <ApiKeyCell corpusId={c.id} masked={c.apiKeyMasked} raw={c.apiKeyRaw} />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <span className="text-muted">Token</span>
-                  <p className="text-foreground mt-0.5 font-mono">{c.hederaTokenId || "—"}</p>
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-border text-xs">
-                <span className="text-muted">Agent API Key</span>
-                <div className="mt-1">
-                  <ApiKeyCell corpusId={c.id} masked={c.apiKeyMasked} />
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* Activity Feed */}
-      <section className="mb-10">
-        <h2 className="text-sm text-muted mb-4 tracking-wide">// ACTIVITY FEED</h2>
-        <div className="bg-surface border border-border">
-          {activities.map((item, i) => (
-            <div
-              key={item.id}
-              className={`p-4 flex items-start gap-4 hover:bg-surface-hover transition-colors ${
-                i < activities.length - 1 ? "border-b border-border" : ""
-              }`}
-            >
-              <div className="flex flex-col items-center pt-1.5 shrink-0">
-                <div className={`w-1.5 h-1.5 rounded-full ${item.status === "completed" ? "bg-green-500" : "bg-yellow-500"}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs text-muted font-mono">
-                    {new Date(item.timestamp).toLocaleString()}
-                  </span>
-                  <span className="text-xs text-muted">&middot;</span>
-                  <span className="text-xs text-accent">{item.corpusName}</span>
-                  <StatusBadge status={item.status} />
+          {/* Activity Feed */}
+          <section className="mb-10">
+            <h2 className="text-sm text-muted mb-4 tracking-wide">// ACTIVITY FEED</h2>
+            <div className="bg-surface border border-border">
+              {activities.length === 0 && (
+                <div className="p-6 text-muted text-sm text-center">No activity yet.</div>
+              )}
+              {activities.map((item, i) => (
+                <div
+                  key={item.id}
+                  className={`p-4 flex items-start gap-4 hover:bg-surface-hover transition-colors ${
+                    i < activities.length - 1 ? "border-b border-border" : ""
+                  }`}
+                >
+                  <div className="flex flex-col items-center pt-1.5 shrink-0">
+                    <div className={`w-1.5 h-1.5 rounded-full ${item.status === "completed" ? "bg-green-500" : "bg-yellow-500"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs text-muted font-mono">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                      <span className="text-xs text-muted">&middot;</span>
+                      <span className="text-xs text-accent">{item.corpusName}</span>
+                      <StatusBadge status={item.status} />
+                    </div>
+                    <p className="text-sm text-foreground">{item.action}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-foreground">{item.action}</p>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
+        </>
+      )}
     </div>
   );
 }
