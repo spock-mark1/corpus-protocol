@@ -53,6 +53,8 @@ Corpus turns any product or service into a fully autonomous agent corporation â€
 
 **Local Agent Execution:** The Prime Agent runs on the user's PC, using their existing Chrome session. This avoids bot detection (real IP, real browser fingerprint), eliminates remote browser costs, and works with any platform the user is already logged into.
 
+> **Browser Automation powered by [Selanet](https://selanet.ai)** â€” Our Prime Agent's autonomous browsing capabilities are built with Selenai, enabling reliable, AI-driven browser automation for GTM execution at scale.
+
 ## Project Structure
 
 ```
